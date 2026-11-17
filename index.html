@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISO STUDIO — Simulador Oficial UMU</title>
+  <meta name="description" content="Plataforma de alta fidelidad para la preparación de exámenes de Introducción a los Sistemas Operativos (UMU).">
+
+  <!-- Google Fonts: IBM Plex Mono & IBM Plex Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+
+  <!-- Favicon (Data URI for 100% offline & file:// support + fallback link) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231C1C28'/%3E%3Cpath d='M9 9h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z' fill='none' stroke='%23F6E6EA' stroke-width='2'/%3E%3Cpath d='M5 13h4m-4 6h4m14-6h4m-4 6h4M13 5v4m6-4v4m-6 14v4m6-4v4' stroke='%23F6E6EA' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23F6E6EA'/%3E%3C/svg%3E">
+  <link rel="alternate icon" href="favicon.svg">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- ══════════════════════════════════════════════════════════════
+         COLLAPSIBLE SIDEBAR DOCK
+         ══════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Header & Brand -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand-box">
+          <div class="sidebar-logo-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2"/>
+              <rect x="9" y="9" width="6" height="6"/>
+              <line x1="9" y1="1" x2="9" y2="4"/>
+              <line x1="15" y1="1" x2="15" y2="4"/>
+              <line x1="9" y1="20" x2="9" y2="23"/>
+              <line x1="15" y1="20" x2="15" y2="23"/>
+              <line x1="20" y1="9" x2="23" y2="9"/>
+              <line x1="20" y1="14" x2="23" y2="14"/>
+              <line x1="1" y1="9" x2="4" y2="9"/>
+              <line x1="1" y1="14" x2="4" y2="14"/>
+            </svg>
+          </div>
+          <div class="sidebar-brand-text">
+            <span class="sidebar-title">ISO STUDIO</span>
+            <span class="sidebar-badge mono">UMU</span>
+          </div>
+        </div>
+
+        <button class="sidebar-toggle-btn" id="btn-toggle-sidebar" title="Plegar / Desplegar Menú" aria-label="Toggle sidebar collapse">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="sidebar-nav">
+
+        <!-- Group: DIAGNÓSTICO -->
+        <div class="nav-group-label mono">RENDIMIENTO</div>
+        <div class="nav-list">
+          <a href="#dashboard" class="nav-link active" data-view="dashboard" data-tooltip="Analítica de Tests">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              <span class="nav-text-label">Analítica de Tests</span>
+            </div>
+            <span class="nav-pill-badge mono">Live</span>
+          </a>
+        </div>
+
+        <!-- Group: SIMULADORES -->
+        <div class="nav-group-label mono">EXÁMENES OFICIALES</div>
+        <div class="nav-list">
+          <a href="#official" class="nav-link" data-view="official" data-tooltip="Simulacro Oficial (50Q)">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <span class="nav-text-label">Simulacro Oficial</span>
+            </div>
+            <span class="nav-pill-badge mono">50Q</span>
+          </a>
+
+          <a href="#exams" class="nav-link" data-view="exams" data-tooltip="Exámenes Históricos">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span class="nav-text-label">Exámenes Años Ant.</span>
+            </div>
+            <span class="nav-pill-badge mono">4 Tests</span>
+          </a>
+        </div>
+
+        <!-- Group: ENTRENAMIENTO -->
+        <div class="nav-group-label mono">ENTRENAMIENTO</div>
+        <div class="nav-list">
+          <a href="#topics" class="nav-link" data-view="topics" data-tooltip="Entrenador por Temas">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+              <span class="nav-text-label">Entrenador Temático</span>
+            </div>
+            <span class="nav-pill-badge mono">T1–T6</span>
+          </a>
+
+          <a href="#mistakes" class="nav-link" data-view="mistakes" data-tooltip="Banco de Fallos">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              <span class="nav-text-label">Repaso de Fallos</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Group: BANCO Y AUDITORÍA -->
+        <div class="nav-group-label mono">BASE DE DATOS</div>
+        <div class="nav-list">
+          <a href="#bank" class="nav-link" data-view="bank" data-tooltip="Auditor de Preguntas">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+              <span class="nav-text-label">Auditor de Preguntas</span>
+            </div>
+            <span class="nav-pill-badge mono" id="sidebar-q-count">358</span>
+          </a>
+
+          <a href="#history" class="nav-link" data-view="history" data-tooltip="Historial Completo">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span class="nav-text-label">Historial de Tests</span>
+            </div>
+          </a>
+
+          <a href="#ingest" class="nav-link" data-view="ingest" data-tooltip="Ingesta de Preguntas">
+            <div class="nav-link-left">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span class="nav-text-label">Ingesta de Preguntas</span>
+            </div>
+          </a>
+        </div>
+
+      </nav>
+
+      <!-- Sidebar Footer Info -->
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-stats mono">
+          <div>Normativa UMU: +1.0 / -1.0 / 0</div>
+          <div style="color:var(--text-dim); margin-top:3px;">Corte: 16 netos (5.0 / 10)</div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MAIN WORKSPACE
+         ══════════════════════════════════════════════════════════════ -->
+    <main class="workspace" id="workspace">
+
+      <!-- Top Header -->
+      <header class="workspace-header">
+        <div class="header-left">
+          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle mobile menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div class="breadcrumb-box">
+            <span class="breadcrumb-root">ISO STUDIO</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current" id="breadcrumb-current">Analítica de Rendimiento</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div class="header-stat-pill mono">
+            Tests: <strong id="hdr-stat-tests">0</strong>
+          </div>
+          <div class="header-stat-pill mono">
+            Aprobados: <strong id="hdr-stat-pass">0%</strong>
+          </div>
+          <div class="header-stat-pill mono">
+            Fallos: <strong id="hdr-stat-mistakes" style="color:var(--err);">0</strong>
+          </div>
+
+          <button class="btn-primary-action" id="hdr-btn-start-mock">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span>Simulacro 50Q</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- View Container -->
+      <div class="view-container">
+
+        <!-- ──────────────────────────────────────────────────────────
+             1. DASHBOARD VIEW (ANALYTICS ONLY — NO REDUNDANT BUTTONS)
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel active" id="view-dashboard">
+
+          <div style="margin-bottom:24px;">
+            <h1 style="font-size:1.65rem; font-weight:800; color:var(--text-pure); letter-spacing:-0.02em; margin-bottom:6px;">
+              Analítica de Rendimiento y Tests
+            </h1>
+            <p style="font-size:0.92rem; color:var(--text-muted); line-height:1.5;">
+              Métricas consolidadas de tus simulacros bajo normativa oficial UMU: 50 preguntas, 2 opciones, 1 acierto suma +1.0, 1 fallo resta -1.0 y corte en 16 puntos netos.
+            </p>
+          </div>
+
+          <!-- Top Analytics KPI Grid -->
+          <div class="analytics-grid">
+            <div class="analytics-card">
+              <div class="analytics-info">
+                <span class="analytics-label mono">Tests Completados</span>
+                <span class="analytics-num mono" id="dash-total-tests">0</span>
+              </div>
+              <div class="analytics-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-info">
+                <span class="analytics-label mono">Tasa de Aprobados</span>
+                <span class="analytics-num mono" id="dash-pass-rate" style="color:var(--ok);">0%</span>
+              </div>
+              <div class="analytics-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-info">
+                <span class="analytics-label mono">Nota Media (/10)</span>
+                <span class="analytics-num mono" id="dash-avg-score">0.00</span>
+              </div>
+              <div class="analytics-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-info">
+                <span class="analytics-label mono">Puntos Netos Acum.</span>
+                <span class="analytics-num mono" id="dash-total-net">+0</span>
+              </div>
+              <div class="analytics-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-info">
+                <span class="analytics-label mono">Preguntas Dominadas</span>
+                <span class="analytics-num mono" id="dash-mastered">0 / 358</span>
+              </div>
+              <div class="analytics-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- SVG Progression Curve Card -->
+          <div class="chart-card-pro">
+            <div class="chart-header">
+              <div class="chart-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                <span>Curva de Evolución en Simulacros</span>
+              </div>
+              <div class="mono" style="font-size:0.78rem; color:var(--text-dim); display:flex; align-items:center; gap:16px;">
+                <span style="display:flex; align-items:center; gap:6px;">
+                  <span style="width:10px; height:10px; background:#F26171; display:inline-block; border-radius:2px;"></span>
+                  Línea de Corte: 5.0 (16 Netos)
+                </span>
+                <span style="display:flex; align-items:center; gap:6px;">
+                  <span style="width:10px; height:10px; background:#F6E6EA; display:inline-block; border-radius:2px;"></span>
+                  Calificación Simulacro
+                </span>
+              </div>
+            </div>
+
+            <div class="chart-canvas-wrap" id="chart-container">
+              <!-- Dynamically populated by JS -->
+            </div>
+          </div>
+
+          <!-- Radar & Topic Health Card -->
+          <div class="radar-card-pro">
+            <div class="radar-header-pro">
+              <div>
+                <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+                  Diagnóstico y Rendimiento por Temas
+                </h3>
+                <p style="font-size:0.86rem; color:var(--text-dim);">
+                  El algoritmo audita tus respuestas acumuladas y calcula la precisión neta por bloque temático.
+                </p>
+              </div>
+              <span class="radar-badge-pro neutral mono" id="radar-overall-badge">CALCULANDO DIAGNÓSTICO...</span>
+            </div>
+
+            <div class="radar-grid-pro" id="radar-topics-grid">
+              <!-- Dynamically populated by JS -->
+            </div>
+
+            <div class="radar-footer-pro">
+              <div id="radar-weak-text" style="color:var(--text-muted); flex:1;">
+                <strong>Diagnóstico del Algoritmo:</strong> Completa un simulacro para que el sistema identifique tu tema más débil.
+              </div>
+              <button class="act-btn-pro" id="btn-train-weakest">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Entrenar Tema Más Débil
+              </button>
+            </div>
+          </div>
+
+          <!-- Recent Tests History Table -->
+          <div class="history-table-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <h3 style="font-size:1.12rem; font-weight:800; color:var(--text-pure);">
+                Últimos Tests Realizados
+              </h3>
+              <a href="#history" class="mono" style="font-size:0.8rem; color:var(--accent); text-decoration:none;" onclick="window.ISO_STUDIO.switchView('history')">
+                Ver Historial Completo →
+              </a>
+            </div>
+
+            <div class="history-list-items" id="dashboard-history-list">
+              <!-- Dynamically populated by JS -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             2. OFFICIAL SIMULATOR VIEW (50 QUESTIONS)
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-official">
+          <div style="max-width:820px; margin:0 auto;">
+            <div class="section-headline">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span>Simulacro Oficial de Examen (50 Preguntas)</span>
+            </div>
+
+            <div class="radar-card-pro" style="padding:32px;">
+              <h2 style="font-size:1.45rem; font-weight:800; color:var(--text-pure); margin-bottom:14px;">
+                Condiciones de Examen Oficial UMU
+              </h2>
+              <p style="font-size:0.95rem; color:var(--text-muted); line-height:1.65; margin-bottom:24px;">
+                Este simulador recrea fielmente las condiciones reales del examen de teoría de la asignatura:
+              </p>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:28px;">
+                <div style="background:var(--surface-raised); border:1px solid var(--border); padding:16px; border-radius:8px;">
+                  <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">Estructura</div>
+                  <div style="font-size:1.1rem; font-weight:800; color:var(--text-pure);">50 Preguntas</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">8 T1 + 20 T2 + 6 T3 + 16 T4</div>
+                </div>
+
+                <div style="background:var(--surface-raised); border:1px solid var(--border); padding:16px; border-radius:8px;">
+                  <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">Penalización</div>
+                  <div style="font-size:1.1rem; font-weight:800; color:var(--err);">1 Mal Resta 1 Bien</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Acierto +1.0 | Fallo -1.0 | Blanco 0</div>
+                </div>
+
+                <div style="background:var(--surface-raised); border:1px solid var(--border); padding:16px; border-radius:8px;">
+                  <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">Corte de Aprobado</div>
+                  <div style="font-size:1.1rem; font-weight:800; color:var(--ok);">≥ 16 Puntos Netos</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Equivale a 5.0 sobre 10.0</div>
+                </div>
+
+                <div style="background:var(--surface-raised); border:1px solid var(--border); padding:16px; border-radius:8px;">
+                  <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">Tiempo Límite</div>
+                  <div style="font-size:1.1rem; font-weight:800; color:var(--text-pure);">60 Minutos</div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Temporizador estricto en vivo</div>
+                </div>
+              </div>
+
+              <div style="background:rgba(246, 230, 234, 0.08); border:1px solid var(--border-light); padding:16px 20px; border-radius:8px; margin-bottom:28px;">
+                <strong style="color:var(--text-pure); font-size:0.92rem; display:block; margin-bottom:6px;">Estrategia recomendada:</strong>
+                <p style="font-size:0.86rem; color:var(--text-muted); margin:0; line-height:1.55;">
+                  Si dudas entre dos opciones con total incertidumbre, <strong>dejarla en blanco</strong> es la opción óptima para no restar puntos netos. Para aprobar necesitas mínimo 16 puntos netos (por ejemplo, 33 aciertos y 17 fallos da 16 netos).
+                </p>
+              </div>
+
+              <button class="act-btn-pro primary" id="btn-start-official-50" style="padding:14px 28px; font-size:1.05rem; width:100%; justify-content:center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Comenzar Simulacro Oficial Ahora
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             3. HISTORICAL EXAMS VIEW (PAST YEARS)
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-exams">
+          <div class="section-headline">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Exámenes Reales de Cursos Anteriores</span>
+          </div>
+
+          <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:24px;">
+            Exámenes oficiales aplicados en convocatorias previas de la UMU, con todas sus preguntas y respuestas oficiales verificadas con plantilla del profesor.
+          </p>
+
+          <div class="card-grid-pro">
+
+            <!-- Card 2023 -->
+            <div class="action-card featured" id="btn-launch-2023">
+              <div>
+                <div class="card-top">
+                  <div class="card-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="card-title">Examen Noviembre 2023</h3>
+                    <div class="mono" style="font-size:0.78rem; color:var(--accent);">Convocatoria Oficial Parcial 1</div>
+                  </div>
+                </div>
+                <p class="card-desc">
+                  Examen completo de 50 preguntas. Énfasis especial en llamadas al sistema de procesos, fork(), señales y algoritmos de planificación.
+                </p>
+              </div>
+              <div class="card-bottom-meta mono">
+                <span>50 Preguntas</span>
+                <span>•</span>
+                <span>60 Minutos</span>
+                <span>•</span>
+                <span style="color:var(--ok);">Plantilla Oficial 100%</span>
+              </div>
+            </div>
+
+            <!-- Card 2022 -->
+            <div class="action-card featured" id="btn-launch-2022">
+              <div>
+                <div class="card-top">
+                  <div class="card-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="card-title">Examen Noviembre 2022</h3>
+                    <div class="mono" style="font-size:0.78rem; color:var(--accent);">Convocatoria Oficial Parcial 1</div>
+                  </div>
+                </div>
+                <p class="card-desc">
+                  Examen oficial de 50 preguntas. Incluye preguntas trampa de sincronización de procesos, tuberías con nombre y estados de procesos.
+                </p>
+              </div>
+              <div class="card-bottom-meta mono">
+                <span>50 Preguntas</span>
+                <span>•</span>
+                <span>60 Minutos</span>
+                <span>•</span>
+                <span style="color:var(--ok);">Plantilla Oficial 100%</span>
+              </div>
+            </div>
+
+            <!-- Card Parcial I -->
+            <div class="action-card" id="btn-launch-parcial1">
+              <div>
+                <div class="card-top">
+                  <div class="card-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="card-title">Examen Parcial I Oficial</h3>
+                    <div class="mono" style="font-size:0.78rem; color:var(--text-dim);">Evaluación Continua</div>
+                  </div>
+                </div>
+                <p class="card-desc">
+                  Prueba de 30 preguntas de alta densidad teórica extraída de los exámenes de evaluación continua.
+                </p>
+              </div>
+              <div class="card-bottom-meta mono">
+                <span>30 Preguntas</span>
+                <span>•</span>
+                <span>36 Minutos</span>
+                <span>•</span>
+                <span style="color:var(--ok);">Verificado</span>
+              </div>
+            </div>
+
+            <!-- Card Prueba Nov 2022 -->
+            <div class="action-card" id="btn-launch-prueba2022">
+              <div>
+                <div class="card-top">
+                  <div class="card-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                      <polyline points="2 17 12 22 22 17"/>
+                      <polyline points="2 12 12 17 22 12"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="card-title">Test de Prueba Nov 2022</h3>
+                    <div class="mono" style="font-size:0.78rem; color:var(--text-dim);">Simulacro de Cátedra</div>
+                  </div>
+                </div>
+                <p class="card-desc">
+                  Test de 30 preguntas preparado por el departamento como ensayo previo al parcial.
+                </p>
+              </div>
+              <div class="card-bottom-meta mono">
+                <span>30 Preguntas</span>
+                <span>•</span>
+                <span>36 Minutos</span>
+                <span>•</span>
+                <span style="color:var(--ok);">Verificado</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             4. TOPICS TRAINER VIEW (T1..T6)
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-topics">
+          <div class="section-headline">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+              <polyline points="2 17 12 22 22 17"/>
+              <polyline points="2 12 12 17 22 12"/>
+            </svg>
+            <span>Entrenador Temático Focalizado</span>
+          </div>
+
+          <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:24px;">
+            Focaliza tu preparación en los bloques temáticos específicos donde tengas menor rendimiento o desees reforzar conceptos.
+          </p>
+
+          <div class="card-grid-pro">
+
+            <!-- T1 -->
+            <div class="action-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(140,177,247,0.15); color:#8CB1F7; border:1px solid #8CB1F740;">T1 • 46 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">8Q en Examen Oficial</span>
+                </div>
+                <h3 class="card-title">Introducción a los SSOO</h3>
+                <p class="card-desc">
+                  Conceptos fundamentales, estructura del SO, modo dual (usuario/kernel), llamadas al sistema, traps e interrupciones hardware.
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T1', 10)">10 Preguntas</button>
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T1', 25)">25 Preguntas</button>
+              </div>
+            </div>
+
+            <!-- T2 -->
+            <div class="action-card featured">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(179,157,242,0.15); color:#B39DF2; border:1px solid #B39DF240;">T2 • 131 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--accent);">20Q en Examen (40%)</span>
+                </div>
+                <h3 class="card-title">Procesos, Hilos y Concurrencia</h3>
+                <p class="card-desc">
+                  Estados de procesos, PCB, cambio de contexto, llamadas fork/wait/exit/exec, hilos kernel/usuario, planificación de CPU (FCFS, SJF, RR) y sincronización (semáforos, monitores).
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T2', 15)">15 Preguntas</button>
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T2', 30)">30 Preguntas</button>
+              </div>
+            </div>
+
+            <!-- T3 -->
+            <div class="action-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(82,209,149,0.15); color:#52D195; border:1px solid #52D19540;">T3 • 35 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">6Q en Examen Oficial</span>
+                </div>
+                <h3 class="card-title">Gestión de Memoria</h3>
+                <p class="card-desc">
+                  Asignación contigua, fragmentación interna/externa, paginación, segmentación, tablas de páginas multinivel, TLB y memoria virtual (fallo de página, reemplazo FIFO/LRU).
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T3', 10)">10 Preguntas</button>
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T3', 25)">25 Preguntas</button>
+              </div>
+            </div>
+
+            <!-- T4 -->
+            <div class="action-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(245,176,84,0.15); color:#F5B054; border:1px solid #F5B05440;">T4 • 103 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">16Q en Examen (32%)</span>
+                </div>
+                <h3 class="card-title">E/S y Sistema de Ficheros</h3>
+                <p class="card-desc">
+                  Controladores, DMA, interrupciones E/S, buffers de bloque, estructura de directorios, inodos en UNIX, asignación indexada y descriptores de fichero (open, read, write, lseek).
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T4', 15)">15 Preguntas</button>
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T4', 30)">30 Preguntas</button>
+              </div>
+            </div>
+
+            <!-- T5 -->
+            <div class="action-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(232,138,167,0.15); color:#E88AA7; border:1px solid #E88AA740;">T5 • 25 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Complementario</span>
+                </div>
+                <h3 class="card-title">Seguridad y Protección</h3>
+                <p class="card-desc">
+                  Dominios de protección, matrices de acceso, listas ACL, capacidades y autenticación en sistemas multiusuario.
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T5', 15)">Test Completo (15Q)</button>
+              </div>
+            </div>
+
+            <!-- T6 -->
+            <div class="action-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                  <span class="topic-tag mono" style="background:rgba(168,168,192,0.15); color:#A8A8C0; border:1px solid #A8A8C040;">T6 • 18 Preguntas</span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Complementario</span>
+                </div>
+                <h3 class="card-title">Sistemas Distribuidos</h3>
+                <p class="card-desc">
+                  Modelos cliente-servidor, RPC (Remote Procedure Call), sockets TCP/UDP y sistemas de archivos distribuidos (NFS).
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T6', 15)">Test Completo (15Q)</button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             5. MISTAKES BANK VIEW
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-mistakes">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div class="section-headline" style="margin-bottom:4px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <span>Banco y Repaso de Fallos</span>
+              </div>
+              <p style="font-size:0.88rem; color:var(--text-dim);">
+                Preguntas que has fallado en simulacros. Acertarlas en el test de repaso las elimina automáticamente de esta lista.
+              </p>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+              <button class="act-btn-pro danger" id="btn-clear-mistakes-bank">Vaciar Banco</button>
+              <button class="act-btn-pro primary" id="btn-start-mistakes-quiz">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Practicar Fallos (<span id="mistakes-total-count">0</span>)
+              </button>
+            </div>
+          </div>
+
+          <div id="mistakes-items-list">
+            <!-- Dynamically populated by JS -->
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             6. QUESTION BANK AUDITOR VIEW
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-bank">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div class="section-headline" style="margin-bottom:4px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
+                <span>Auditor de Preguntas</span>
+              </div>
+              <p style="font-size:0.88rem; color:var(--text-dim);">
+                Explorador de las 358 preguntas con soluciones oficiales verificadas y justificaciones.
+              </p>
+            </div>
+            <span class="mono" id="bank-match-count" style="font-size:0.86rem; font-weight:800; color:var(--text-pure); background:var(--surface-raised); padding:6px 14px; border-radius:6px; border:1px solid var(--border);">358 de 358</span>
+          </div>
+
+          <!-- Filters Bar -->
+          <div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+            <input type="text" id="bank-search-input" placeholder="Buscar por palabra clave, concepto, llamada al sistema..." class="code-input-area" style="flex:1; min-width:260px; height:44px; padding:10px 16px; font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; border-radius:8px;">
+            <select id="bank-topic-filter" class="code-input-area" style="width:200px; height:44px; padding:8px 12px; font-family:'IBM Plex Mono', monospace; font-size:0.84rem; border-radius:8px; cursor:pointer;">
+              <option value="ALL">Todos los Temas (T1-T6)</option>
+              <option value="T1">Tema 1: Intro SSOO</option>
+              <option value="T2">Tema 2: Procesos</option>
+              <option value="T3">Tema 3: Memoria</option>
+              <option value="T4">Tema 4: E/S y Ficheros</option>
+              <option value="T5">Tema 5: Seguridad</option>
+              <option value="T6">Tema 6: Distribuidos</option>
+            </select>
+          </div>
+
+          <div id="bank-questions-container">
+            <!-- Dynamically populated by JS -->
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             7. HISTORY VIEW
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-history">
+          <div class="section-headline">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>Historial Completo de Tests</span>
+          </div>
+
+          <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:24px;">
+            Registro cronológico detallado de todos los simulacros completados. Haz clic en "Ver Examen" para abrir el informe de corrección completo con explicaciones.
+          </p>
+
+          <div id="history-full-list">
+            <!-- Dynamically populated by JS -->
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             8. INGESTION VIEW
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-ingest">
+          <div style="max-width:820px; margin:0 auto;">
+            <div class="section-headline">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Ingesta de Nuevas Preguntas</span>
+            </div>
+
+            <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:20px;">
+              Añade preguntas personalizadas en formato JSON estructurado para incorporarlas al banco de datos.
+            </p>
+
+            <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:12px; padding:24px; box-shadow:var(--shadow-md);">
+              <label for="ingest-json-input" class="mono" style="font-size:0.78rem; font-weight:700; color:var(--text-dim); display:block; margin-bottom:8px;">
+                FORMATO JSON REQUERIDO (ARRAY U OBJETO):
+              </label>
+              <textarea id="ingest-json-input" class="code-input-area" style="width:100%; height:240px; margin-bottom:16px;" placeholder='[
+  {
+    "t": "T2",
+    "q": "¿Qué llamada al sistema crea un proceso hijo en UNIX?",
+    "opts": [
+      "fork(), que devuelve 0 al hijo y el PID del hijo al padre.",
+      "exec(), que reemplaza el espacio de direcciones por un nuevo programa."
+    ],
+    "ans": 0,
+    "ex": "fork() duplica el proceso y devuelve 0 en el hijo y el PID en el padre.",
+    "source": "Examen Cátedra"
+  }
+]'></textarea>
+
+              <div style="display:flex; justify-content:flex-end;">
+                <button class="act-btn-pro primary" id="btn-submit-ingest">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Importar al Banco de Datos
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             9. QUIZ VIEW (EXAM CANVAS)
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-quiz">
+
+          <!-- Top HUD -->
+          <div class="quiz-hud-bar">
+            <div class="quiz-hud-title" id="quiz-hud-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span>Simulacro Oficial ISO (50 Preguntas)</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="timer-badge mono" id="quiz-timer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>60:00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 50-Pills Navigator -->
+          <div class="navigator-strip-pro" id="quiz-navigator">
+            <!-- Dynamically generated 50 buttons -->
+          </div>
+
+          <!-- Question Canvas -->
+          <div class="question-canvas-pro">
+            <div class="q-top-line">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span class="q-badge-counter mono" id="quiz-q-counter">PREGUNTA 1 DE 50</span>
+                <span class="topic-tag mono" id="quiz-topic-badge" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#FFFFFF;">[T2] Procesos</span>
+                <span class="mono" id="quiz-source-badge" style="font-size:0.75rem; color:var(--text-dim);">Examen Oficial UMU</span>
+              </div>
+              <span class="mono" style="font-size:0.75rem; color:#FFA5AE; background:rgba(242,97,113,0.12); padding:3px 8px; border-radius:4px; border:1px solid var(--err-border);">
+                Fallo: -1.0 | Blanco: 0
+              </span>
+            </div>
+
+            <!-- Stem text in large bold typography -->
+            <div class="q-stem-text" id="quiz-stem-text">
+              Cargando enunciado de la pregunta...
+            </div>
+
+            <!-- Option Cards [A] and [B] -->
+            <div class="options-container-pro" id="quiz-options-container">
+              <!-- Dynamically populated -->
+            </div>
+
+            <div style="margin-top:20px; font-size:0.76rem; color:var(--text-dim);" class="mono">
+              Atajos de teclado: [A] o [B] para seleccionar • [Espacio] o [D] para desmarcar (dejar en blanco) • [←] / [→] navegar • [F] marcar
+            </div>
+          </div>
+
+          <!-- Bottom Action Bar -->
+          <div class="quiz-controls-bar">
+            <div style="display:flex; gap:10px;">
+              <button class="act-btn-pro" id="btn-quiz-prev">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Anterior
+              </button>
+              <button class="act-btn-pro" id="btn-quiz-next">
+                Siguiente
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+              <button class="act-btn-pro" id="btn-quiz-unselect" title="Dejar la pregunta en blanco para que no penalice">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                Dejar en Blanco
+              </button>
+              <button class="act-btn-pro" id="btn-quiz-flag">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                Marcar para Revisar
+              </button>
+            </div>
+
+            <div>
+              <button class="act-btn-pro danger" id="btn-quiz-finish">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Finalizar Examen
+              </button>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ──────────────────────────────────────────────────────────
+             10. RESULTS VIEW
+             ────────────────────────────────────────────────────────── -->
+        <section class="view-panel" id="view-results">
+
+          <!-- Results Hero Banner with Score Animation -->
+          <div class="results-hero-pro">
+            <div class="mono" style="font-size:0.84rem; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">
+              CALIFICACIÓN FINAL DEL SIMULACRO
+            </div>
+
+            <div class="score-display-num mono" id="res-score-num">
+              0.00
+            </div>
+
+            <div class="score-status-sub" id="res-status-sub">
+              CALCULANDO RESULTADO...
+            </div>
+
+            <!-- Key Metric Boxes -->
+            <div class="results-metric-grid">
+              <div class="res-box">
+                <div class="res-box-val mono" style="color:var(--ok);" id="res-val-correct">+0</div>
+                <div class="res-box-lbl mono">Aciertos</div>
+              </div>
+
+              <div class="res-box">
+                <div class="res-box-val mono" style="color:var(--err);" id="res-val-wrong">-0</div>
+                <div class="res-box-lbl mono">Fallos (-1.0)</div>
+              </div>
+
+              <div class="res-box">
+                <div class="res-box-val mono" style="color:var(--text-dim);" id="res-val-blank">0</div>
+                <div class="res-box-lbl mono">En Blanco (0)</div>
+              </div>
+
+              <div class="res-box">
+                <div class="res-box-val mono" style="color:var(--text-pure);" id="res-val-net">+0</div>
+                <div class="res-box-lbl mono">Puntos Netos</div>
+              </div>
+
+              <div class="res-box">
+                <div class="res-box-val mono" id="res-val-time">0m 0s</div>
+                <div class="res-box-lbl mono">Tiempo</div>
+              </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+              <button class="act-btn-pro" id="btn-results-retake">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Reintentar Examen
+              </button>
+              <button class="act-btn-pro" id="btn-results-practice-mistakes">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Practicar Solo Fallos
+              </button>
+              <button class="act-btn-pro primary" id="btn-results-to-analytics">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Ir a la Analítica
+              </button>
+            </div>
+          </div>
+
+          <!-- Review Section -->
+          <div style="margin-bottom:16px;">
+            <h3 style="font-size:1.18rem; font-weight:800; color:var(--text-pure); margin-bottom:12px;">
+              Revisión Detallada de Preguntas
+            </h3>
+            <div class="filter-pills-bar" id="res-filter-bar">
+              <!-- Dynamically populated filters -->
+            </div>
+          </div>
+
+          <div id="res-review-container">
+            <!-- Dynamically populated review questions -->
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/questions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
