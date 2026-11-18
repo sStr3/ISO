@@ -1554,9 +1554,12 @@
     const cardTests = document.getElementById('dash-total-tests');
     const cardPass = document.getElementById('dash-pass-rate');
     const cardScore = document.getElementById('dash-avg-score');
-    const cardPending = document.getElementById('dash-stat-pending');
+    const cardPending = document.getElementById('dash-pending-reviews') || document.getElementById('dash-stat-pending');
     const cardNet = document.getElementById('dash-total-net');
     const cardMastered = document.getElementById('dash-mastered');
+
+    const dueList = (LEARNING_ENGINE && typeof LEARNING_ENGINE.getDueReviews === 'function') ? LEARNING_ENGINE.getDueReviews() : [];
+    const pendingVal = dueList.length;
 
     if (cardTests) animateNumberValue(cardTests, 0, totalTests, 750, 0);
     if (cardPass) animateNumberValue(cardPass, 0, passRate, 850, 0, '', '%');
@@ -1564,17 +1567,24 @@
       const formattedScore = totalTests > 0 ? Number(avgScore).toFixed(1).replace('.', ',') : '0,0';
       cardScore.textContent = formattedScore;
     }
-    if (cardPending) animateNumberValue(cardPending, 0, mistakeIds.size, 750, 0);
+    if (cardPending) animateNumberValue(cardPending, 0, pendingVal, 750, 0);
+    const cardPendingLegacy = document.getElementById('dash-stat-pending');
+    if (cardPendingLegacy && cardPendingLegacy !== cardPending) {
+      animateNumberValue(cardPendingLegacy, 0, mistakeIds.size, 750, 0);
+    }
     if (cardNet) animateNumberValue(cardNet, 0, totalNet, 800, 0, totalNet >= 0 ? '+' : '');
     if (cardMastered) cardMastered.textContent = masteredCount + ' / ' + APP.questions.length;
 
     // Action Cards Stats (Figma Screen 01 Row 4)
-    const mistakesCountEl = document.getElementById('dash-mistakes-count');
+    const mistakesCountEl = document.getElementById('dash-errors-count') || document.getElementById('dash-mistakes-count');
     if (mistakesCountEl) animateNumberValue(mistakesCountEl, 0, mistakeIds.size, 750, 0);
+    const legacyMistakes = document.getElementById('dash-mistakes-count');
+    if (legacyMistakes && legacyMistakes !== mistakesCountEl) animateNumberValue(legacyMistakes, 0, mistakeIds.size, 750, 0);
 
-    const spacedCountEl = document.getElementById('dash-spaced-count');
-    const dueCardsList = (LEARNING_ENGINE && typeof LEARNING_ENGINE.getDueCards === 'function') ? LEARNING_ENGINE.getDueCards() : [];
-    if (spacedCountEl) animateNumberValue(spacedCountEl, 0, dueCardsList.length, 750, 0);
+    const spacedCountEl = document.getElementById('dash-spaced-today-count') || document.getElementById('dash-spaced-count');
+    if (spacedCountEl) animateNumberValue(spacedCountEl, 0, pendingVal, 750, 0);
+    const legacySpaced = document.getElementById('dash-spaced-count');
+    if (legacySpaced && legacySpaced !== spacedCountEl) animateNumberValue(legacySpaced, 0, pendingVal, 750, 0);
 
     // Quick Favorites Action in Dashboard
     const dashFavBtn = document.getElementById('dash-btn-favorites');
@@ -1912,12 +1922,60 @@
     const masteryData = LEARNING_ENGINE.getAllTopicsMasteryMap();
     const cov = LEARNING_ENGINE.getCoverageStats();
 
-    const t1 = (masteryData.topics.T1 || {}).masteryScore || 82;
-    const t2 = (masteryData.topics.T2 || {}).masteryScore || 65;
-    const t3 = (masteryData.topics.T3 || {}).masteryScore || 88;
-    const t4 = (masteryData.topics.T4 || {}).masteryScore || 61;
-    const t5 = (masteryData.topics.T5 || {}).masteryScore || 76;
-    const t6 = (masteryData.topics.T6 || {}).masteryScore || 54;
+    const topicNames = {
+      T1: 'Introducción',
+      T2: 'Memoria',
+      T3: 'Procesos',
+      T4: 'E/S y archivos',
+      T5: 'Concurrencia',
+      T6: 'Otros'
+    };
+
+    const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+    const topicScores = topicKeys.map(k => {
+      const st = (masteryData.topics && masteryData.topics[k]) || {};
+      return {
+        key: k,
+        title: topicNames[k],
+        score: st.masteryScore !== undefined ? st.masteryScore : 0,
+        practiced: st.practiced || 0,
+        total: st.total || 0
+      };
+    });
+
+    const avgMastery = masteryData.avgMastery !== undefined ? masteryData.avgMastery : 0;
+    const totalPracticed = cov.practiced || 0;
+
+    // Separate strengths vs weaknesses based on actual data
+    const withPractice = topicScores.filter(t => t.practiced > 0);
+    let strengthsText = 'Aún sin datos';
+    let weaknessesText = 'Completa tests para diagnosticar';
+
+    if (withPractice.length > 0) {
+      const sortedDesc = [...withPractice].sort((a, b) => b.score - a.score);
+      const strengths = sortedDesc.filter(t => t.score >= 50).slice(0, 3);
+      const weaknesses = [...withPractice].sort((a, b) => a.score - b.score).filter(t => t.score < 70).slice(0, 3);
+
+      if (strengths.length > 0) {
+        strengthsText = strengths.map(t => `${t.key} · ${t.score}%`).join(' &nbsp; ');
+      }
+      if (weaknesses.length > 0) {
+        weaknessesText = weaknesses.map(t => `${t.key} · ${t.score}%`).join(' &nbsp; ');
+      } else if (withPractice.length > 0) {
+        weaknessesText = 'Sin áreas críticas detectadas';
+      }
+    }
+
+    // Dynamic radar polygon points (Center 100, 90; Max Radius 65)
+    // Angles for 6 vertices: T1 top: -90°, T2: -30°, T3: 30°, T4: 90°, T5: 150°, T6: 210°
+    const angles = [-Math.PI / 2, -Math.PI / 6, Math.PI / 6, Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6];
+    const radarPoints = topicScores.map((t, i) => {
+      const r = Math.max(10, (t.score / 100) * 65);
+      const x = Math.round(100 + r * Math.cos(angles[i]));
+      const y = Math.round(90 + r * Math.sin(angles[i]));
+      return { x, y };
+    });
+    const polygonPointsStr = radarPoints.map(p => `${p.x},${p.y}`).join(' ');
 
     container.innerHTML = `
       <!-- Header -->
@@ -1933,10 +1991,10 @@
         <div>
           <div class="figma-card-tag" style="margin-bottom:10px;">DOMINIO GLOBAL</div>
           <div class="mono" style="font-size:46px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:8px;">
-            ${masteryData.avgMastery || 74}%
+            ${avgMastery}%
           </div>
           <div style="font-size:12px; font-weight:600; color:var(--text-pure); margin-bottom:2px;">estimación conjunta</div>
-          <div style="font-size:11px; color:var(--text-dim);">Muestra: 6 temas · ${cov.practiced || 152} preguntas vistas</div>
+          <div style="font-size:11px; color:var(--text-dim);">Muestra: 6 temas · ${totalPracticed} preguntas vistas</div>
         </div>
 
         <!-- Center: SVG Hexagonal Radar Chart -->
@@ -1946,15 +2004,10 @@
             <polygon points="100,20 160,55 160,125 100,160 40,125 40,55" stroke="#252c3b" stroke-width="1.5" fill="none"/>
             <polygon points="100,40 145,66 145,114 100,140 55,114 55,66" stroke="#252c3b" stroke-width="1" fill="none"/>
             <polygon points="100,60 130,77 130,103 100,120 70,103 70,77" stroke="#252c3b" stroke-width="1" fill="none"/>
-            <!-- Filled Blue Mastery Polygon -->
-            <polygon points="100,30 152,60 148,118 100,148 50,118 46,62" fill="#3b82f6" fill-opacity="0.35" stroke="#3b82f6" stroke-width="2"/>
+            <!-- Filled Blue Mastery Polygon (Dynamic from real scores) -->
+            <polygon points="${polygonPointsStr}" fill="#3b82f6" fill-opacity="${avgMastery > 0 ? '0.35' : '0.1'}" stroke="#3b82f6" stroke-width="2"/>
             <!-- Vertex dots -->
-            <circle cx="100" cy="30" r="3" fill="#60a5fa"/>
-            <circle cx="152" cy="60" r="3" fill="#60a5fa"/>
-            <circle cx="148" cy="118" r="3" fill="#60a5fa"/>
-            <circle cx="100" cy="148" r="3" fill="#60a5fa"/>
-            <circle cx="50" cy="118" r="3" fill="#60a5fa"/>
-            <circle cx="46" cy="62" r="3" fill="#60a5fa"/>
+            ${radarPoints.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#60a5fa"/>`).join('')}
           </svg>
         </div>
 
@@ -1962,11 +2015,11 @@
         <div style="display:flex; flex-direction:column; gap:16px;">
           <div>
             <div class="figma-card-tag" style="margin-bottom:6px; color:#22c55e;">Fortalezas</div>
-            <div style="font-size:12px; color:var(--text-pure); font-weight:600;">T1 · 82% &nbsp; T3 · 88% &nbsp; T5 · 76%</div>
+            <div style="font-size:12px; color:var(--text-pure); font-weight:600;">${strengthsText}</div>
           </div>
           <div>
             <div class="figma-card-tag" style="margin-bottom:6px; color:#f59e0b;">A reforzar</div>
-            <div style="font-size:12px; color:var(--text-pure); font-weight:600;">T2 · 65% &nbsp; T4 · 61% &nbsp; T6 · 54%</div>
+            <div style="font-size:12px; color:var(--text-pure); font-weight:600;">${weaknessesText}</div>
           </div>
         </div>
       </div>
@@ -1977,35 +2030,31 @@
 
       <!-- 3x2 Grid of 6 Topic Mastery Cards -->
       <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px;">
-        ${['T1','T2','T3','T4','T5','T6'].map(topKey => {
-          const topicNames = {
-            T1: 'Introducción',
-            T2: 'Memoria',
-            T3: 'Procesos',
-            T4: 'E/S y archivos',
-            T5: 'Concurrencia',
-            T6: 'Otros'
-          };
-          const stats = masteryData.topics[topKey] || { masteryScore: 70, practiced: 100, total: 120, title: topicNames[topKey] };
-          const pct = stats.masteryScore || 70;
+        ${topicScores.map(top => {
+          const pct = top.score;
+          const practiced = top.practiced;
           const isGood = pct >= 70;
+          const statusText = practiced === 0 ? 'Sin iniciar' : (isGood ? 'Buen dominio' : 'En progreso');
+          const statusColor = practiced === 0 ? '#64748b' : (isGood ? '#22c55e' : '#f59e0b');
+          const statusBorder = practiced === 0 ? 'rgba(100,116,139,0.3)' : (isGood ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)');
+
           return `
-            <div class="figma-card-panel mastery-topic-card" id="mastery-card-${topKey}" style="padding:18px 20px;">
+            <div class="figma-card-panel mastery-topic-card" id="mastery-card-${top.key}" style="padding:18px 20px;">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                 <div>
-                  <span class="mono" style="font-size:13px; font-weight:700; color:var(--text-pure);">${topKey} ${topicNames[topKey]}</span>
-                  ${topKey === 'T2' ? '<span class="figma-pill-tag" style="margin-left:6px; font-size:9px; padding:2px 6px;">40% en Oficial</span>' : ''}
+                  <span class="mono" style="font-size:13px; font-weight:700; color:var(--text-pure);">${top.key} ${top.title}</span>
+                  ${top.key === 'T2' ? '<span class="figma-pill-tag" style="margin-left:6px; font-size:9px; padding:2px 6px;">40% en Oficial</span>' : ''}
                 </div>
                 <span class="mono" style="font-size:18px; font-weight:700; color:var(--text-pure);">${pct}%</span>
               </div>
-              <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">${stats.practiced || 112} preguntas vistas</div>
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:10px;">${practiced} preguntas vistas</div>
               <div class="figma-bar-track" style="margin-bottom:14px; height:5px;">
                 <div class="figma-bar-fill" style="width:${pct}%; background:#3b82f6;"></div>
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size:11px; color:var(--text-dim);">Confianza: estimación</span>
-                <span class="figma-pill-tag" style="font-size:10px; padding:2px 8px; color:${isGood ? '#22c55e' : '#f59e0b'}; border-color:${isGood ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'};">
-                  ${isGood ? 'Buen dominio' : 'En progreso'}
+                <span class="figma-pill-tag" style="font-size:10px; padding:2px 8px; color:${statusColor}; border-color:${statusBorder};">
+                  ${statusText}
                 </span>
               </div>
             </div>
@@ -2025,6 +2074,11 @@
     const stats = LEARNING_ENGINE.getAnnotationsStats();
     const favQuestions = LEARNING_ENGINE.getFavoriteQuestions();
     const notesQuestions = LEARNING_ENGINE.getQuestionsWithNotes();
+    const mistakesCount = Object.keys(APP.mistakesBank || {}).length;
+    const tagCount = Object.keys(APP.personalAnnotations || {}).filter(k => {
+      const a = APP.personalAnnotations[k];
+      return a && a.tags && a.tags.length > 0;
+    }).length;
 
     container.innerHTML = `
       <!-- Header -->
@@ -2057,19 +2111,19 @@
       <!-- Row 2: 4 KPI Cards -->
       <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:20px;">
         <div class="figma-card-panel" style="padding:16px 20px;">
-          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${stats.favoritesCount || 18}</div>
+          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${stats.favoritesCount || 0}</div>
           <div style="font-size:12px; color:var(--text-muted);">Favoritas</div>
         </div>
         <div class="figma-card-panel" style="padding:16px 20px;">
-          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">12</div>
+          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${mistakesCount}</div>
           <div style="font-size:12px; color:var(--text-muted);">Para revisar</div>
         </div>
         <div class="figma-card-panel" style="padding:16px 20px;">
-          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${stats.notesCount || 29}</div>
+          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${stats.notesCount || 0}</div>
           <div style="font-size:12px; color:var(--text-muted);">Notas</div>
         </div>
         <div class="figma-card-panel" style="padding:16px 20px;">
-          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">8</div>
+          <div class="mono" style="font-size:28px; font-weight:700; color:var(--text-pure); line-height:1; margin-bottom:6px;">${tagCount}</div>
           <div style="font-size:12px; color:var(--text-muted);">Etiquetas</div>
         </div>
       </div>
@@ -2080,12 +2134,16 @@
         <div class="figma-card-panel" style="padding:20px 24px;">
           <div class="figma-card-tag">PREGUNTAS GUARDADAS</div>
           <div style="font-size:12px; color:var(--text-dim); margin-top:2px; margin-bottom:14px;">Tus referencias más consultadas</div>
-          ${(favQuestions.length > 0 ? favQuestions : APP.questions.slice(0, 4)).map(q => `
+          ${favQuestions.length === 0 ? `
+            <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:12px;">
+              No tienes preguntas guardadas como favoritas. Pulsa el botón ★ durante cualquier examen para tenerlas siempre a mano aquí.
+            </div>
+          ` : favQuestions.slice(0, 5).map(q => `
             <div class="figma-table-row">
               <div class="figma-table-left">
                 <span class="figma-table-id">#${q.id}</span>
                 <div style="min-width:0;">
-                  <div style="font-size:13px; font-weight:600; color:var(--text-pure); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(q.q.slice(0, 50))}</div>
+                  <div style="font-size:13px; font-weight:600; color:var(--text-pure); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml((q.q || '').slice(0, 50))}</div>
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -2101,27 +2159,24 @@
           <div>
             <div class="figma-card-tag">NOTAS RECIENTES</div>
             <div style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
-              <div style="background:#171a21; border:1px solid #232733; border-radius:8px; padding:12px 14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">T2 · Memoria</span>
-                  <button class="btn-figma-card" style="padding:2px 8px; font-size:10px;">Editar</button>
+              ${notesQuestions.length === 0 ? `
+                <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:12px;">
+                  No hay notas personales guardadas. Añade notas conceptuales a preguntas para verlas aquí organizadas.
                 </div>
-                <div style="font-size:12px; color:var(--text-pure);">Revisar traducción de direcciones y TLB.</div>
-              </div>
-              <div style="background:#171a21; border:1px solid #232733; border-radius:8px; padding:12px 14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">T4 · Sistemas de archivos</span>
-                  <button class="btn-figma-card" style="padding:2px 8px; font-size:10px;">Editar</button>
-                </div>
-                <div style="font-size:12px; color:var(--text-pure);">Revisar inodos y bloques indirectos.</div>
-              </div>
-              <div style="background:#171a21; border:1px solid #232733; border-radius:8px; padding:12px 14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">T3 · Concurrencia</span>
-                  <button class="btn-figma-card" style="padding:2px 8px; font-size:10px;">Editar</button>
-                </div>
-                <div style="font-size:12px; color:var(--text-pure);">Exclusión mutua y semáforos POSIX.</div>
-              </div>
+              ` : notesQuestions.slice(0, 3).map(q => {
+                const ann = LEARNING_ENGINE.getAnnotation(q.id);
+                const topKey = q.t || 'T1';
+                const meta = APP.topicMeta[topKey] || { title: topKey };
+                return `
+                  <div style="background:#171a21; border:1px solid #232733; border-radius:8px; padding:12px 14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">${topKey} · ${meta.title}</span>
+                      <button class="btn-figma-card" style="padding:2px 8px; font-size:10px;" onclick="window.ISO_STUDIO.practiceSingleMistake('${q.id}')">Ver</button>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-pure);">${escapeHtml((ann.notes || '').slice(0, 70))}</div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
           <!-- Bottom tags -->
@@ -2757,17 +2812,23 @@
     const mistakeIds = Object.keys(APP.mistakesBank);
     const mistakes = APP.questions.filter(q => mistakeIds.includes(q.id));
 
-    const totalMistakesCount = summary.totalMistakes || 37;
-    const repeatCount = summary.repeatMistakes || 7;
+    const totalMistakesCount = summary.totalMistakes || 0;
+    const repeatCount = summary.repeatMistakes || 0;
 
-    const topicMistakesCount = {
-      T1: (summary.byTopic && summary.byTopic.T1) || 8,
-      T2: (summary.byTopic && summary.byTopic.T2) || 12,
-      T3: (summary.byTopic && summary.byTopic.T3) || 6,
-      T4: (summary.byTopic && summary.byTopic.T4) || 11,
-      T5: (summary.byTopic && summary.byTopic.T5) || 4,
-      T6: (summary.byTopic && summary.byTopic.T6) || 3
+    const topicMistakesCount = summary.byTopic || {
+      T1: 0, T2: 0, T3: 0, T4: 0, T5: 0, T6: 0
     };
+
+    const catConcept = (summary.byCategory && summary.byCategory.concept) || 0;
+    const catTechnical = (summary.byCategory && summary.byCategory.calculation) || 0;
+    const catReading = (summary.byCategory && summary.byCategory.reading) || 0;
+    const catMemory = (summary.byCategory && summary.byCategory.lapse) || 0;
+    const catConfusion = (summary.byCategory && summary.byCategory.confusion) || 0;
+    const maxVal = Math.max(1, totalMistakesCount);
+
+    const maxTopicVal = Math.max(1, ...Object.values(topicMistakesCount));
+    const highPriorityPct = totalMistakesCount > 0 ? Math.round((repeatCount / totalMistakesCount) * 100) : 0;
+    const medPriorityCount = Math.max(0, totalMistakesCount - repeatCount);
 
     let html = `
       <!-- Header (Figma Screen 08) -->
@@ -2804,28 +2865,28 @@
           <div class="figma-card-tag" style="margin-bottom:14px;">CLASIFICACIÓN DE CAUSAS</div>
           <div class="figma-bar-row">
             <span class="figma-bar-label">Confusión conceptual</span>
-            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:48%; background:#3b82f6;"></div></div>
-            <span class="figma-bar-val">12</span>
+            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:${Math.round((catConcept / maxVal) * 100)}%; background:#3b82f6;"></div></div>
+            <span class="figma-bar-val">${catConcept}</span>
           </div>
           <div class="figma-bar-row">
             <span class="figma-bar-label">Destreza técnica</span>
-            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:36%; background:#06b6d4;"></div></div>
-            <span class="figma-bar-val">9</span>
+            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:${Math.round((catTechnical / maxVal) * 100)}%; background:#06b6d4;"></div></div>
+            <span class="figma-bar-val">${catTechnical}</span>
           </div>
           <div class="figma-bar-row">
             <span class="figma-bar-label">Error de lectura</span>
-            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:28%; background:#eab308;"></div></div>
-            <span class="figma-bar-val">7</span>
+            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:${Math.round((catReading / maxVal) * 100)}%; background:#eab308;"></div></div>
+            <span class="figma-bar-val">${catReading}</span>
           </div>
           <div class="figma-bar-row">
             <span class="figma-bar-label">Memoria</span>
-            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:20%; background:#f97316;"></div></div>
-            <span class="figma-bar-val">5</span>
+            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:${Math.round((catMemory / maxVal) * 100)}%; background:#f97316;"></div></div>
+            <span class="figma-bar-val">${catMemory}</span>
           </div>
           <div class="figma-bar-row">
             <span class="figma-bar-label">Acierto casual</span>
-            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:16%; background:#94a3b8;"></div></div>
-            <span class="figma-bar-val">4</span>
+            <div class="figma-bar-track"><div class="figma-bar-fill" style="width:${Math.round((catConfusion / maxVal) * 100)}%; background:#94a3b8;"></div></div>
+            <span class="figma-bar-val">${catConfusion}</span>
           </div>
         </div>
       </div>
@@ -2838,8 +2899,8 @@
           <div style="font-size:12px; color:var(--text-dim); margin-top:2px; margin-bottom:12px;">Preguntas con errores por bloque temático</div>
           <div class="figma-vert-chart">
             ${['T1','T2','T3','T4','T5','T6'].map(t => {
-              const val = topicMistakesCount[t] || 4;
-              const hPct = Math.min(100, Math.round((val / 15) * 100));
+              const val = topicMistakesCount[t] || 0;
+              const hPct = totalMistakesCount > 0 ? Math.min(100, Math.round((val / maxTopicVal) * 100)) : 0;
               return `
                 <div class="figma-vert-col">
                   <div class="figma-vert-bar-track">
@@ -2861,10 +2922,10 @@
               <div style="position:relative; width:64px; height:64px; flex-shrink:0;">
                 <svg viewBox="0 0 100 100" width="64" height="64">
                   <circle cx="50" cy="50" r="40" stroke="#252c3b" stroke-width="8" fill="none"/>
-                  <circle cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="8" fill="none" stroke-dasharray="251.32" stroke-dashoffset="190" transform="rotate(-90 50 50)" stroke-linecap="round"/>
+                  <circle cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="8" fill="none" stroke-dasharray="251.32" stroke-dashoffset="${251.32 - (251.32 * highPriorityPct / 100)}" transform="rotate(-90 50 50)" stroke-linecap="round"/>
                 </svg>
                 <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
-                  <span class="mono" style="font-size:15px; font-weight:700; color:var(--text-pure);">19%</span>
+                  <span class="mono" style="font-size:15px; font-weight:700; color:var(--text-pure);">${highPriorityPct}%</span>
                 </div>
               </div>
               <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
@@ -2874,9 +2935,9 @@
           </div>
           <!-- Legend Pills -->
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#ef4444;"></span>Alta · 7</span>
-            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#f59e0b;"></span>Media · 14</span>
-            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#3b82f6;"></span>Baja · 16</span>
+            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#ef4444;"></span>Alta · ${repeatCount}</span>
+            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#f59e0b;"></span>Media · ${medPriorityCount}</span>
+            <span class="figma-pill-tag"><span style="width:6px; height:6px; border-radius:50%; background:#3b82f6;"></span>Baja · 0</span>
           </div>
         </div>
       </div>
@@ -3108,16 +3169,19 @@
     }
 
     // Render vertical bars matching Figma Screen 01
-    const gridContainer = document.getElementById('radar-topics-grid');
-    if (gridContainer) {
+    const gridContainers = [
+      document.getElementById('dash-topic-bars-container'),
+      document.getElementById('radar-topics-grid')
+    ].filter(Boolean);
+
+    if (gridContainers.length > 0) {
       let gridHtml = '';
-      const fallbackPcts = { T1: 78, T2: 65, T3: 71, T4: 62, T5: 80, T6: 76 };
       ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].forEach(function (topKey) {
         const deep = (LEARNING_ENGINE && typeof LEARNING_ENGINE.getTopicDeepStats === 'function')
           ? LEARNING_ENGINE.getTopicDeepStats(topKey)
           : { masteryScore: 0 };
         const hasHistory = (APP.testHistory && APP.testHistory.length > 0) || (deep && deep.masteryScore > 0);
-        const scorePct = hasHistory ? Math.min(100, Math.max(0, deep.masteryScore || 0)) : fallbackPcts[topKey];
+        const scorePct = hasHistory ? Math.min(100, Math.max(0, deep.masteryScore || 0)) : 0;
 
         gridHtml += `
           <div class="topic-bar-col" onclick="window.ISO_STUDIO.startTopicTest('${topKey}', 15)" title="Practicar ${topKey} (15Q)">
@@ -3129,7 +3193,7 @@
           </div>
         `;
       });
-      gridContainer.innerHTML = gridHtml;
+      gridContainers.forEach(gc => gc.innerHTML = gridHtml);
     }
 
     // Weak topic notice in radar footer
@@ -3147,42 +3211,21 @@
   }
 
   function renderRecentHistoryTable() {
-    const listContainer = document.getElementById('dashboard-history-list');
-    if (!listContainer) return;
+    const listContainers = [
+      document.getElementById('dash-recent-activity-list'),
+      document.getElementById('dashboard-history-list')
+    ].filter(Boolean);
+
+    if (listContainers.length === 0) return;
 
     if (!APP.testHistory || APP.testHistory.length === 0) {
-      listContainer.innerHTML = `
-        <div class="dash-activity-row">
-          <div class="dash-activity-left">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span>Simulacro oficial</span>
-          </div>
-          <div class="dash-activity-right">
-            <span class="dash-activity-score">19,0 / 50</span>
-            <span class="dash-activity-date">Hoy, 10:24</span>
-          </div>
-        </div>
-        <div class="dash-activity-row">
-          <div class="dash-activity-left">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            <span>Entrenamiento T2</span>
-          </div>
-          <div class="dash-activity-right">
-            <span class="dash-activity-score">17 / 20</span>
-            <span class="dash-activity-date">Ayer, 18:03</span>
-          </div>
-        </div>
-        <div class="dash-activity-row">
-          <div class="dash-activity-left">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <span>Repetición espaciada</span>
-          </div>
-          <div class="dash-activity-right">
-            <span class="dash-activity-score">10 / 12</span>
-            <span class="dash-activity-date">Ayer, 12:17</span>
-          </div>
+      const emptyHtml = `
+        <div class="dash-empty-notice" style="padding: 24px 16px; text-align: center; color: var(--text-dim); font-size: 13px;">
+          <div style="font-weight: 600; color: var(--text-pure); margin-bottom: 4px;">Sin actividad registrada</div>
+          <div>Completa tu primer simulacro o sesión para guardar tus resultados reales en este navegador.</div>
         </div>
       `;
+      listContainers.forEach(c => c.innerHTML = emptyHtml);
       return;
     }
 
@@ -3190,15 +3233,32 @@
     let html = '';
 
     recent.forEach(function (t) {
-      let iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-      if (t.mode === 'topics' || (t.name && t.name.includes('Tema'))) {
-        iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>';
-      } else if (t.mode === 'spaced' || t.mode === 'smart') {
-        iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+      let iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      if (t.isOfficial50 || (t.name && t.name.toLowerCase().includes('oficial'))) {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      } else if (t.mode === 'topics' || (t.name && t.name.toLowerCase().includes('tema'))) {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/></svg>';
+      } else {
+        iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>';
       }
 
-      const scoreText = (t.net !== undefined && t.totalQ) ? `${Number(t.net).toFixed(1).replace('.', ',')} / ${t.totalQ}` : `${t.score || 0} / 10`;
-      const dateText = (t.date || '').replace('T', ' ').slice(5, 16);
+      const scoreText = (t.net !== undefined && t.totalQ)
+        ? `${Number(t.net).toFixed(1).replace('.', ',')} / ${t.totalQ}`
+        : `${Number(t.score || 0).toFixed(1).replace('.', ',')} / 10`;
+
+      let dateFormatted = 'Hoy';
+      if (t.date) {
+        try {
+          const d = new Date(t.date);
+          const now = new Date();
+          const isToday = d.toDateString() === now.toDateString();
+          const hours = String(d.getHours()).padStart(2, '0');
+          const mins = String(d.getMinutes()).padStart(2, '0');
+          dateFormatted = isToday ? `Hoy, ${hours}:${mins}` : `${d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}, ${hours}:${mins}`;
+        } catch (e) {
+          dateFormatted = String(t.date).slice(5, 16);
+        }
+      }
 
       html += `
         <div class="dash-activity-row" onclick="window.ISO_STUDIO.inspectPastTest('${t.id}')" style="cursor:pointer;" title="Revisar resultado">
@@ -3208,13 +3268,13 @@
           </div>
           <div class="dash-activity-right">
             <span class="dash-activity-score">${scoreText}</span>
-            <span class="dash-activity-date">${dateText}</span>
+            <span class="dash-activity-date">${dateFormatted}</span>
           </div>
         </div>
       `;
     });
 
-    listContainer.innerHTML = html;
+    listContainers.forEach(c => c.innerHTML = html);
   }
 
   // ── Quiz Engine ───────────────────────────────────────────────────
@@ -3956,18 +4016,22 @@
     updateExamProgressBar();
 
     if (!config.isTutorMode || config.timeLimitSec > 0) {
+      const timerLbl = document.getElementById('quiz-timer-lbl');
+      if (timerLbl) timerLbl.textContent = 'Tiempo restante';
+      const timerStatus = document.getElementById('quiz-timer-status');
+      if (timerStatus) timerStatus.textContent = 'En curso';
+      const timerTag = document.getElementById('quiz-timer-mode-tag');
+      if (timerTag) timerTag.textContent = config.isOfficial50 ? 'Oficial' : 'Práctica';
       startQuizTimer();
     } else {
+      const timerLbl = document.getElementById('quiz-timer-lbl');
+      if (timerLbl) timerLbl.textContent = 'MODO TUTOR';
       const timerEl = document.getElementById('quiz-timer');
-      if (timerEl) {
-        timerEl.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-          </svg>
-          <span>Modo Tutor</span>
-        `;
-      }
+      if (timerEl) timerEl.textContent = '∞';
+      const timerStatus = document.getElementById('quiz-timer-status');
+      if (timerStatus) timerStatus.textContent = 'Tutor Guiado';
+      const timerTag = document.getElementById('quiz-timer-mode-tag');
+      if (timerTag) timerTag.textContent = 'Sin límite';
     }
 
     showToast(`Comenzando: ${config.name}`, 'info');
@@ -3984,13 +4048,15 @@
 
     const countEl = document.getElementById('quiz-progress-count');
     const pctEl = document.getElementById('quiz-progress-pct');
-    const barEl = document.getElementById('quiz-progress-fill');
+    const barEl = document.getElementById('quiz-progress-fill') || document.getElementById('quiz-progress-bar');
     const streakPill = document.getElementById('quiz-streak-pill');
     const streakCount = document.getElementById('quiz-streak-count');
 
     if (countEl) countEl.textContent = `${answeredCount} de ${total} preguntas`;
     if (pctEl) pctEl.textContent = `${pct}% completado`;
     if (barEl) barEl.style.width = `${pct}%`;
+    const bridgeBar = document.getElementById('quiz-progress-bar');
+    if (bridgeBar && bridgeBar !== barEl) bridgeBar.style.width = `${pct}%`;
 
     // Calculate answered streak
     let streak = 0;
@@ -4066,26 +4132,22 @@
     const mins = Math.floor(s / 60);
     const secs = s % 60;
     const str = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    el.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <polyline points="12 6 12 12 16 14"/>
-      </svg>
-      <span>${str}</span>
-    `;
-
-    if (s <= 300) { // under 5 minutes
-      el.classList.add('urgent');
-    } else {
-      el.classList.remove('urgent');
+    
+    if (el) {
+      el.textContent = str;
+      if (s <= 300) {
+        el.classList.add('urgent');
+      } else {
+        el.classList.remove('urgent');
+      }
     }
 
-    const timerCircle = document.getElementById('quiz-timer-circle');
-    if (timerCircle) {
+    const timerRing = document.getElementById('quiz-timer-ring') || document.getElementById('quiz-timer-circle');
+    if (timerRing) {
       const totalSec = (APP.activeQuiz.totalQ ? APP.activeQuiz.totalQ * 72 : 3600);
       const ratio = Math.max(0, Math.min(1, s / totalSec));
-      const circ = 2 * Math.PI * 22; // ~138
-      timerCircle.style.strokeDashoffset = circ - (circ * ratio);
+      const circ = 2 * Math.PI * 20; // ~125.66
+      timerRing.style.strokeDashoffset = circ - (circ * ratio);
     }
   }
 
@@ -4118,8 +4180,11 @@
       const isAnswered = q.userAnswers[i] !== undefined;
       const isFlagged = !!q.flags[i];
 
-      let classes = ['nav-grid-pill', 'mono'];
-      if (isCurrent) classes.push('current');
+      let classes = ['figma-50-btn', 'nav-grid-pill', 'mono'];
+      if (isCurrent) {
+        classes.push('current');
+        classes.push('active');
+      }
       if (isAnswered) classes.push('answered');
       if (isFlagged) classes.push('flagged');
 
@@ -4147,9 +4212,13 @@
     if (!currentQ) return;
 
     // Update Counter badge
-    const counterEl = document.getElementById('quiz-q-counter');
+    const counterEl = document.getElementById('quiz-question-counter') || document.getElementById('quiz-q-counter');
     if (counterEl) {
-      counterEl.textContent = `PREGUNTA ${idx + 1} DE ${quiz.totalQ}`;
+      counterEl.textContent = `Pregunta ${idx + 1} de ${quiz.totalQ}`;
+    }
+    const bridgeCounter = document.getElementById('quiz-q-counter');
+    if (bridgeCounter && bridgeCounter !== counterEl) {
+      bridgeCounter.textContent = `PREGUNTA ${idx + 1} DE ${quiz.totalQ}`;
     }
 
     // Update Topic badge
@@ -4206,12 +4275,16 @@
     if (noteSavedIndicator) noteSavedIndicator.style.display = 'none';
 
     // Stem text with smooth slide animation
-    const stemEl = document.getElementById('quiz-stem-text');
+    const stemEl = document.getElementById('quiz-stem-text') || document.getElementById('quiz-question-text');
     if (stemEl) {
       stemEl.textContent = currentQ.q;
       stemEl.classList.remove('q-anim-slide');
       void stemEl.offsetWidth;
       stemEl.classList.add('q-anim-slide');
+    }
+    const bridgeStem = document.getElementById('quiz-question-text');
+    if (bridgeStem && bridgeStem !== stemEl) {
+      bridgeStem.textContent = currentQ.q;
     }
 
     // Options container with smooth slide animation
@@ -4313,10 +4386,10 @@
     if (btnFlag) {
       if (quiz.flags[idx]) {
         btnFlag.classList.add('active');
-        btnFlag.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Marcada`;
+        btnFlag.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span>Marcada</span>`;
       } else {
         btnFlag.classList.remove('active');
-        btnFlag.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Marcar para Revisar`;
+        btnFlag.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span>Marcar</span>`;
       }
     }
 
@@ -4337,6 +4410,7 @@
       const isFlagged = !!quiz.flags[i];
 
       pill.classList.toggle('current', isCurrent);
+      pill.classList.toggle('active', isCurrent);
       pill.classList.toggle('answered', isAnswered);
       pill.classList.toggle('flagged', isFlagged);
 
@@ -5590,41 +5664,44 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
             </div>
           </div>
           <div class="figma-calendar-grid">
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">24</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 90%;"></div></div>
-              <span class="figma-calendar-day-lbl">LUN</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">18</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 70%;"></div></div>
-              <span class="figma-calendar-day-lbl">MAR</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">12</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 50%;"></div></div>
-              <span class="figma-calendar-day-lbl">MIÉ</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">9</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 38%;"></div></div>
-              <span class="figma-calendar-day-lbl">JUE</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">14</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 58%;"></div></div>
-              <span class="figma-calendar-day-lbl">VIE</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">6</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 25%;"></div></div>
-              <span class="figma-calendar-day-lbl">SÁB</span>
-            </div>
-            <div class="figma-calendar-col">
-              <span class="figma-calendar-day-val">3</span>
-              <div class="figma-calendar-bar-track"><div class="figma-calendar-bar-fill" style="height: 12%;"></div></div>
-              <span class="figma-calendar-day-lbl">DOM</span>
-            </div>
+            ${(() => {
+              const dayNames = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+              const calendarDays = [];
+              const todayMidnight = new Date();
+              todayMidnight.setHours(0, 0, 0, 0);
+
+              for (let d = 0; d < 7; d++) {
+                const targetDay = new Date(todayMidnight.getTime() + d * 86400000);
+                const nextDay = new Date(todayMidnight.getTime() + (d + 1) * 86400000);
+                const dayLabel = dayNames[targetDay.getDay()];
+
+                let count = 0;
+                if (d === 0) {
+                  count = dueList.length;
+                } else {
+                  count = Object.values(APP.learningState || {}).filter(st => {
+                    if (!st || !st.nextReviewDate) return false;
+                    const rDate = new Date(st.nextReviewDate);
+                    return rDate >= targetDay && rDate < nextDay;
+                  }).length;
+                }
+                calendarDays.push({ label: dayLabel, count });
+              }
+
+              const maxCount = Math.max(5, ...calendarDays.map(cd => cd.count));
+              return calendarDays.map(cd => {
+                const hPct = cd.count > 0 ? Math.max(16, Math.round((cd.count / maxCount) * 90)) : 8;
+                return `
+                  <div class="figma-calendar-col">
+                    <span class="figma-calendar-day-val">${cd.count}</span>
+                    <div class="figma-calendar-bar-track">
+                      <div class="figma-calendar-bar-fill" style="height: ${hPct}%; ${cd.count === 0 ? 'background: #232938;' : ''}"></div>
+                    </div>
+                    <span class="figma-calendar-day-lbl">${cd.label}</span>
+                  </div>
+                `;
+              }).join('');
+            })()}
           </div>
         </div>
 
@@ -5637,27 +5714,35 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
             </div>
           </div>
           <div style="display:flex; flex-direction:column; gap:12px;">
-            <div class="figma-opt-item" style="padding:12px 14px;">
-              <div style="flex:1;">
-                <div style="font-size:13px; font-weight:700; color:var(--text-pure);">#128 Paginación y memoria virtual</div>
-                <div style="font-size:11px; color:var(--text-muted);">T2 · Gestión de memoria</div>
-              </div>
-              <span class="figma-badge-pill" style="font-size:10px; padding:2px 8px;">Memoria</span>
-            </div>
-            <div class="figma-opt-item" style="padding:12px 14px;">
-              <div style="flex:1;">
-                <div style="font-size:13px; font-weight:700; color:var(--text-pure);">#076 Planificación de CPU</div>
-                <div style="font-size:11px; color:var(--text-muted);">T1 · Procesos</div>
-              </div>
-              <span class="figma-badge-pill" style="font-size:10px; padding:2px 8px;">Procesos</span>
-            </div>
-            <div class="figma-opt-item" style="padding:12px 14px;">
-              <div style="flex:1;">
-                <div style="font-size:13px; font-weight:700; color:var(--text-pure);">#201 Sistemas de archivos</div>
-                <div style="font-size:11px; color:var(--text-muted);">T4 · E/S y Ficheros</div>
-              </div>
-              <span class="figma-badge-pill" style="font-size:10px; padding:2px 8px;">Rendimiento</span>
-            </div>
+            ${(() => {
+              const upcoming = (dueList.length > 0 ? dueList : Object.keys(APP.learningState || {})
+                .filter(id => APP.learningState[id] && APP.learningState[id].nextReviewDate)
+                .map(id => APP.questions.find(q => q.id === id))
+                .filter(Boolean)
+              ).slice(0, 3);
+
+              if (upcoming.length === 0) {
+                return `
+                  <div style="text-align:center; padding:36px 16px; color:var(--text-muted); font-size:12px; line-height:1.5;">
+                    No hay preguntas programadas para los próximos días. Las preguntas que practiques y consolides en simulacros o sesiones inteligentes aparecerán aquí según su intervalo SM-2.
+                  </div>
+                `;
+              }
+
+              return upcoming.map(q => {
+                const topKey = q.t || 'T1';
+                const meta = APP.topicMeta[topKey] || { title: topKey };
+                return `
+                  <div class="figma-opt-item" style="padding:12px 14px; cursor:pointer;" onclick="window.ISO_STUDIO.practiceSingleMistake('${q.id}')">
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:13px; font-weight:700; color:var(--text-pure); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${q.id} ${escapeHtml((q.q || '').slice(0, 45))}</div>
+                      <div style="font-size:11px; color:var(--text-muted);">${topKey} · ${meta.title}</div>
+                    </div>
+                    <span class="figma-badge-pill" style="font-size:10px; padding:2px 8px;">${topKey}</span>
+                  </div>
+                `;
+              }).join('');
+            })()}
           </div>
         </div>
       </div>
