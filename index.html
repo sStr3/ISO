@@ -737,6 +737,231 @@
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.02); }
     }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       NATIVE <dialog> MODAL STYLING & POP-IN MOTION (MODERN WEB STANDARD)
+       ═══════════════════════════════════════════════════════════════════ */
+    dialog.app-modal-dialog {
+      border: none !important;
+      background: transparent !important;
+      padding: 0 !important;
+      margin: auto !important;
+      max-width: 480px !important;
+      width: 90% !important;
+      overscroll-behavior: contain !important;
+    }
+    dialog.app-modal-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.65) !important;
+      backdrop-filter: blur(10px) !important;
+      -webkit-backdrop-filter: blur(10px) !important;
+    }
+    .app-modal-card {
+      background: #181C24 !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 14px !important;
+      padding: 24px 26px !important;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+      color: #F8FAFC !important;
+      animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+    [data-theme="light"] .app-modal-card {
+      background: #FFFFFF !important;
+      border: 1px solid #CBD5E1 !important;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+      color: #0F172A !important;
+    }
+    .app-modal-header {
+      display: flex !important;
+      gap: 16px !important;
+      align-items: flex-start !important;
+      margin-bottom: 22px !important;
+    }
+    .app-modal-icon-badge {
+      width: 44px !important;
+      height: 44px !important;
+      border-radius: 10px !important;
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: #EF4444 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    }
+    .app-modal-title {
+      font-size: 1.15rem !important;
+      font-weight: 800 !important;
+      color: var(--text-pure) !important;
+      margin: 0 0 6px 0 !important;
+    }
+    [data-theme="light"] .app-modal-title {
+      color: #000000 !important;
+    }
+    .app-modal-desc {
+      font-size: 0.88rem !important;
+      color: var(--text-muted) !important;
+      margin: 0 !important;
+      line-height: 1.5 !important;
+    }
+    [data-theme="light"] .app-modal-desc {
+      color: #334155 !important;
+    }
+    .app-modal-actions {
+      display: flex !important;
+      justify-content: flex-end !important;
+      gap: 10px !important;
+    }
+    @keyframes modalPopIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       HERRAMIENTAS RÁPIDAS (POPOVER API & MENU BUTTON)
+       ═══════════════════════════════════════════════════════════════════ */
+    .app-menu-btn {
+      width: 38px !important;
+      height: 38px !important;
+      border-radius: var(--radius-sm) !important;
+      background: var(--surface-raised) !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-pure) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      transition: all 0.16s ease !important;
+    }
+    [data-theme="light"] .app-menu-btn {
+      background: #F1F5F9 !important;
+      border-color: #CBD5E1 !important;
+      color: #0F172A !important;
+    }
+    .app-menu-btn:hover {
+      border-color: var(--accent) !important;
+      color: var(--accent) !important;
+      transform: translateY(-1px) !important;
+    }
+    .app-menu-btn:active {
+      transform: scale(0.96) !important;
+    }
+
+    .app-quick-menu {
+      position: fixed !important;
+      top: 64px !important;
+      right: 28px !important;
+      width: 340px !important;
+      background: #181C24 !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 14px !important;
+      padding: 16px !important;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+      margin: 0 !important;
+      z-index: 100 !important;
+      animation: menuPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+    [data-theme="light"] .app-quick-menu {
+      background: #FFFFFF !important;
+      border-color: #CBD5E1 !important;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15) !important;
+    }
+    .quick-menu-header {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      margin-bottom: 12px !important;
+      padding-bottom: 10px !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+    .quick-menu-title {
+      font-size: 0.85rem !important;
+      font-weight: 700 !important;
+      color: var(--text-pure) !important;
+    }
+    [data-theme="light"] .quick-menu-title {
+      color: #000000 !important;
+    }
+    .quick-menu-badge {
+      font-size: 0.7rem !important;
+      font-weight: 700 !important;
+      color: var(--accent) !important;
+      background: var(--accent-subtle) !important;
+      border: 1px solid var(--accent-border) !important;
+      padding: 2px 8px !important;
+      border-radius: var(--radius-pill) !important;
+    }
+    .quick-menu-list {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .quick-menu-item {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 10px 12px !important;
+      border-radius: 8px !important;
+      border: 1px solid transparent !important;
+      background: transparent !important;
+      width: 100% !important;
+      text-align: left !important;
+      cursor: pointer !important;
+      transition: all 0.15s ease !important;
+    }
+    .quick-menu-item:hover {
+      background: var(--surface-raised) !important;
+      border-color: var(--border) !important;
+      transform: translateX(2px) !important;
+    }
+    [data-theme="light"] .quick-menu-item:hover {
+      background: #F1F5F9 !important;
+      border-color: #CBD5E1 !important;
+    }
+    .quick-menu-item:active {
+      transform: scale(0.98) !important;
+    }
+    .quick-menu-icon {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 8px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+    .quick-menu-info {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 2px !important;
+    }
+    .quick-menu-name {
+      font-size: 0.85rem !important;
+      font-weight: 700 !important;
+      color: var(--text-pure) !important;
+    }
+    [data-theme="light"] .quick-menu-name {
+      color: #000000 !important;
+    }
+    .quick-menu-desc {
+      font-size: 0.74rem !important;
+      color: var(--text-muted) !important;
+    }
+    @keyframes menuPopIn {
+      from { transform: translateY(-6px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Abandon button subtle danger style */
+    .act-btn-pro.danger-subtle {
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: #EF4444 !important;
+      border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    }
+    .act-btn-pro.danger-subtle:hover {
+      background: #DC2626 !important;
+      color: #FFFFFF !important;
+      border-color: #DC2626 !important;
+    }
   </style>
 
   <script>
@@ -901,6 +1126,21 @@
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <line x1="23" y1="9" x2="17" y2="15"/>
               <line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          </button>
+
+          <!-- Quick Tools & Actions Menu Toggle Button (Popover API) -->
+          <button class="app-menu-btn" id="btn-app-menu" popovertarget="app-quick-menu" title="Herramientas y Acciones Rápidas" aria-label="Abrir menú de herramientas">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="5" r="2"/>
+              <circle cx="12" cy="5" r="2"/>
+              <circle cx="19" cy="5" r="2"/>
+              <circle cx="5" cy="12" r="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <circle cx="19" cy="12" r="2"/>
+              <circle cx="5" cy="19" r="2"/>
+              <circle cx="12" cy="19" r="2"/>
+              <circle cx="19" cy="19" r="2"/>
             </svg>
           </button>
 
@@ -1928,7 +2168,15 @@
               </button>
             </div>
 
-            <div>
+            <div style="display:flex; gap:10px;">
+              <button class="act-btn-pro danger-subtle" id="btn-quiz-abandon" title="Abandonar este simulacro y salir">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                Abandonar
+              </button>
               <button class="act-btn-pro danger" id="btn-quiz-finish">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                 Finalizar Examen
@@ -2033,6 +2281,97 @@
       </div>
     </main>
 
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       NATIVE CONFIRMATION & ABANDON MODAL DIALOG (HTML5 <dialog>)
+       ══════════════════════════════════════════════════════════════ -->
+  <dialog id="modal-app-confirm" class="app-modal-dialog">
+    <div class="app-modal-card">
+      <div class="app-modal-header">
+        <div class="app-modal-icon-badge" id="modal-confirm-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="app-modal-title" id="modal-confirm-title">¿Abandonar el examen?</h3>
+          <p class="app-modal-desc" id="modal-confirm-desc">El progreso actual del test no se guardará y las preguntas no respondidas contarán como no intentadas.</p>
+        </div>
+      </div>
+      <div class="app-modal-actions">
+        <button type="button" class="act-btn-pro" id="modal-confirm-btn-cancel">Continuar Examen</button>
+        <button type="button" class="act-btn-pro danger" id="modal-confirm-btn-ok">Abandonar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       HERRAMIENTAS Y ACCIONES RÁPIDAS (POPOVER API)
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="app-quick-menu" class="app-quick-menu" popover="auto">
+    <div class="quick-menu-header">
+      <div class="quick-menu-title">Acciones y Herramientas Rápidas</div>
+      <span class="mono quick-menu-badge">ISO STUDIO 2.0</span>
+    </div>
+    <div class="quick-menu-list">
+      <button type="button" class="quick-menu-item" id="qmenu-official">
+        <div class="quick-menu-icon" style="color:var(--accent); background:var(--accent-subtle);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Simulacro Oficial (50Q)</span>
+          <span class="quick-menu-desc">50 preguntas cronometradas (60 min)</span>
+        </div>
+      </button>
+      <button type="button" class="quick-menu-item" id="qmenu-smart">
+        <div class="quick-menu-icon" style="color:#A78BFA; background:rgba(167, 139, 250, 0.14);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Sesión Inteligente</span>
+          <span class="quick-menu-desc">Algoritmo predictivo adaptativo</span>
+        </div>
+      </button>
+      <button type="button" class="quick-menu-item" id="qmenu-spaced">
+        <div class="quick-menu-icon" style="color:#34D399; background:rgba(52, 211, 153, 0.14);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Repaso Espaciado SM-2</span>
+          <span class="quick-menu-desc">Tarjetas vencidas y curva de olvido</span>
+        </div>
+      </button>
+      <button type="button" class="quick-menu-item" id="qmenu-doubts">
+        <div class="quick-menu-icon" style="color:#F87171; background:rgba(248, 113, 113, 0.14);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Pila de Fallos y Dudas</span>
+          <span class="quick-menu-desc">Revisión de tarjetas con dificultad</span>
+        </div>
+      </button>
+      <button type="button" class="quick-menu-item" id="qmenu-bank">
+        <div class="quick-menu-icon" style="color:#FBBF24; background:rgba(251, 191, 36, 0.14);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Auditor del Banco (358Q)</span>
+          <span class="quick-menu-desc">Explorador de preguntas, notas y favoritas</span>
+        </div>
+      </button>
+      <button type="button" class="quick-menu-item" id="qmenu-backup">
+        <div class="quick-menu-icon" style="color:#60A5FA; background:rgba(96, 165, 250, 0.14);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="quick-menu-info">
+          <span class="quick-menu-name">Bóveda JSON y Respaldo</span>
+          <span class="quick-menu-desc">Exportar / importar copias de seguridad</span>
+        </div>
+      </button>
+    </div>
   </div>
 
   <!-- Toast Container -->

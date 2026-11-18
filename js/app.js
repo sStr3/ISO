@@ -1231,10 +1231,17 @@
     }
   }
 
-  function switchView(viewKey, subtabKey) {
+  async function switchView(viewKey, subtabKey) {
     // If active quiz is running and user tries to navigate away, prompt confirmation
     if (APP.activeQuiz && APP.currentView === 'quiz' && viewKey !== 'quiz' && viewKey !== 'results') {
-      if (!confirm('Hay un simulacro de examen en curso. ¿Deseas salir? El progreso se descartará.')) {
+      const confirmed = await showCustomConfirm({
+        title: '¿Abandonar el examen?',
+        message: 'Hay un simulacro de examen en curso. Si sales ahora, el progreso se descartará.',
+        okText: 'Abandonar Examen',
+        cancelText: 'Continuar Examen',
+        okClass: 'danger'
+      });
+      if (!confirmed) {
         return;
       }
       stopQuizTimer();
@@ -3758,7 +3765,7 @@
   }
 
   // ── Finishing and Grading Quiz ────────────────────────────────────
-  function finishQuiz() {
+  async function finishQuiz() {
     if (!APP.activeQuiz) return;
 
     // Check how many unanswered
@@ -3767,9 +3774,22 @@
     const blankCount = totalQ - answeredCount;
 
     if (blankCount > 0 && APP.activeQuiz.remainingSec > 0) {
-      const confirmed = confirm(
-        `Tienes ${blankCount} preguntas en blanco (no contestadas). Recuerda que no restan puntos netos. ¿Deseas entregar el examen ahora?`
-      );
+      const confirmed = await showCustomConfirm({
+        title: '¿Entregar el examen ahora?',
+        message: `Tienes ${blankCount} preguntas en blanco (no contestadas). Recuerda que las preguntas en blanco no restan puntos netos. ¿Deseas entregar el examen ahora?`,
+        okText: 'Entregar y Calificar',
+        cancelText: 'Seguir Respondiendo',
+        okClass: 'primary'
+      });
+      if (!confirmed) return;
+    } else {
+      const confirmed = await showCustomConfirm({
+        title: '¿Entregar el examen?',
+        message: `Has respondido a todas las preguntas (${totalQ}Q). ¿Deseas finalizar la sesión y calcular tu calificación oficial?`,
+        okText: 'Entregar Examen',
+        cancelText: 'Revisar Preguntas',
+        okClass: 'primary'
+      });
       if (!confirmed) return;
     }
 
@@ -4988,9 +5008,16 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
     const btnExit = document.getElementById('btn-exit-spaced-session');
     if (btnExit) {
-      btnExit.addEventListener('click', () => {
+      btnExit.addEventListener('click', async () => {
         AUDIO.playClick();
-        if (confirm('¿Deseas salir de la sesión de repaso? El progreso de las preguntas ya respondidas se ha guardado.')) {
+        const confirmed = await showCustomConfirm({
+          title: '¿Salir de la sesión de repaso?',
+          message: 'El progreso de las preguntas ya respondidas se ha guardado en tu curva SM-2.',
+          okText: 'Salir de la Sesión',
+          cancelText: 'Continuar Repasando',
+          okClass: 'danger'
+        });
+        if (confirmed) {
           exitSpacedReviewSession();
         }
       });
@@ -5469,8 +5496,15 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
     const btnClearMistakes = document.getElementById('btn-clear-mistakes-bank');
     if (btnClearMistakes) {
-      btnClearMistakes.addEventListener('click', function () {
-        if (confirm('¿Estás seguro de que deseas vaciar el banco de fallos?')) {
+      btnClearMistakes.addEventListener('click', async function () {
+        const confirmed = await showCustomConfirm({
+          title: '¿Vaciar el banco de fallos?',
+          message: '¿Estás seguro de que deseas vaciar el banco de fallos? Esta acción eliminará todas las tarjetas marcadas en tu pila de dudas.',
+          okText: 'Vaciar Fallos',
+          cancelText: 'Cancelar',
+          okClass: 'danger'
+        });
+        if (confirmed) {
           APP.mistakesBank = {};
           savePersistentStorage();
           updateGlobalHeaderStats();
@@ -5526,6 +5560,81 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
     const btnFinish = document.getElementById('btn-quiz-finish');
     if (btnFinish) btnFinish.onclick = finishQuiz;
+
+    const btnAbandon = document.getElementById('btn-quiz-abandon');
+    if (btnAbandon) {
+      btnAbandon.onclick = async function () {
+        AUDIO.playClick();
+        const confirmed = await showCustomConfirm({
+          title: '¿Abandonar el examen?',
+          message: '¿Estás seguro de que deseas salir del simulacro? Todo el progreso actual se descartará.',
+          okText: 'Sí, Abandonar',
+          cancelText: 'Seguir con el Test',
+          okClass: 'danger'
+        });
+        if (confirmed) {
+          stopQuizTimer();
+          APP.activeQuiz = null;
+          switchView('study');
+        }
+      };
+    }
+
+    // ── Quick Tools Menu (Popover API) Actions ────────────────────────
+    function closeQuickMenu() {
+      const qm = document.getElementById('app-quick-menu');
+      if (qm && typeof qm.hidePopover === 'function') {
+        try { qm.hidePopover(); } catch (e) {}
+      }
+    }
+
+    const qmOfficial = document.getElementById('qmenu-official');
+    if (qmOfficial) {
+      qmOfficial.onclick = function () {
+        closeQuickMenu();
+        startOfficialQuiz();
+      };
+    }
+
+    const qmSmart = document.getElementById('qmenu-smart');
+    if (qmSmart) {
+      qmSmart.onclick = function () {
+        closeQuickMenu();
+        switchView('study', 'study-smart');
+      };
+    }
+
+    const qmSpaced = document.getElementById('qmenu-spaced');
+    if (qmSpaced) {
+      qmSpaced.onclick = function () {
+        closeQuickMenu();
+        switchView('review', 'review-spaced');
+      };
+    }
+
+    const qmDoubts = document.getElementById('qmenu-doubts');
+    if (qmDoubts) {
+      qmDoubts.onclick = function () {
+        closeQuickMenu();
+        switchView('review', 'review-stack');
+      };
+    }
+
+    const qmBank = document.getElementById('qmenu-bank');
+    if (qmBank) {
+      qmBank.onclick = function () {
+        closeQuickMenu();
+        switchView('admin', 'admin-bank');
+      };
+    }
+
+    const qmBackup = document.getElementById('qmenu-backup');
+    if (qmBackup) {
+      qmBackup.onclick = function () {
+        closeQuickMenu();
+        switchView('admin', 'admin-backup');
+      };
+    }
 
     // Results screen actions
     const btnRetake = document.getElementById('btn-results-retake');
@@ -5738,29 +5847,43 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     reader.readAsText(file);
   }
 
-  function resetLocalData() {
-    if (confirm('ADVERTENCIA: ¿Estás seguro de que deseas restablecer TODOS los datos? Se borrará el historial de exámenes, la pila de fallos y el estado de aprendizaje.')) {
-      if (confirm('Por favor confirma por segunda vez para proceder con el borrado definitivo.')) {
-        try {
-          localStorage.removeItem('iso_test_history');
-          localStorage.removeItem('iso_mistakes_bank');
-          localStorage.removeItem('iso_custom_questions');
-          localStorage.removeItem('iso_learning_state');
-          localStorage.removeItem('iso_answer_attempts');
-          localStorage.removeItem('iso_personal_annotations');
-        } catch (e) {}
-        APP.testHistory = [];
-        APP.mistakesBank = {};
-        APP.learningState = {};
-        APP.answerAttempts = [];
-        APP.personalAnnotations = {};
-        loadQuestions();
-        updateGlobalHeaderStats();
-        renderAnalyticsDashboard();
-        renderStorageAuditInfo();
-        showToast('Datos locales restablecidos correctamente', 'info');
-      }
-    }
+  async function resetLocalData() {
+    const step1 = await showCustomConfirm({
+      title: '¿Restablecer TODOS los datos?',
+      message: 'ADVERTENCIA: ¿Estás seguro de que deseas restablecer TODOS los datos? Se borrará el historial de exámenes, la pila de fallos y el estado de aprendizaje SM-2.',
+      okText: 'Continuar con el borrado',
+      cancelText: 'Cancelar',
+      okClass: 'danger'
+    });
+    if (!step1) return;
+
+    const step2 = await showCustomConfirm({
+      title: 'Confirmación definitiva de borrado',
+      message: 'Por favor confirma por segunda vez para proceder con el borrado definitivo. Esta acción es irreversible.',
+      okText: 'Borrar Definitivamente',
+      cancelText: 'Cancelar',
+      okClass: 'danger'
+    });
+    if (!step2) return;
+
+    try {
+      localStorage.removeItem('iso_test_history');
+      localStorage.removeItem('iso_mistakes_bank');
+      localStorage.removeItem('iso_custom_questions');
+      localStorage.removeItem('iso_learning_state');
+      localStorage.removeItem('iso_answer_attempts');
+      localStorage.removeItem('iso_personal_annotations');
+    } catch (e) {}
+    APP.testHistory = [];
+    APP.mistakesBank = {};
+    APP.learningState = {};
+    APP.answerAttempts = [];
+    APP.personalAnnotations = {};
+    loadQuestions();
+    updateGlobalHeaderStats();
+    renderAnalyticsDashboard();
+    renderStorageAuditInfo();
+    showToast('Datos locales restablecidos correctamente', 'info');
   }
 
   // ── Auditoría y Estado del Almacén (Fase 3) ────────────────────────
@@ -5814,6 +5937,68 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     renderStorageAuditInfo();
     renderBankView();
     showToast(`✓ Auditoría completada: ${result.totalQuestions} preguntas íntegras, ${result.fixedStates} estados corregidos, ${result.prunedStateOrphans} huérfanos eliminados.`, 'info', 4000);
+  }
+
+  // ── Native Accessible Confirmation Modal (<dialog>) ──────────────
+  function showCustomConfirm(options = {}) {
+    return new Promise(function (resolve) {
+      const dialog = document.getElementById('modal-app-confirm');
+      if (!dialog || typeof dialog.showModal !== 'function') {
+        const fallback = typeof window !== 'undefined' && typeof window.confirm === 'function'
+          ? window.confirm(options.message || options.title || '¿Confirmar acción?')
+          : true;
+        resolve(fallback);
+        return;
+      }
+
+      const titleEl = document.getElementById('modal-confirm-title');
+      const descEl = document.getElementById('modal-confirm-desc');
+      const okBtn = document.getElementById('modal-confirm-btn-ok');
+      const cancelBtn = document.getElementById('modal-confirm-btn-cancel');
+
+      if (titleEl) titleEl.textContent = options.title || '¿Confirmar acción?';
+      if (descEl) descEl.textContent = options.message || '';
+      if (okBtn) {
+        okBtn.textContent = options.okText || 'Confirmar';
+        okBtn.className = 'act-btn-pro ' + (options.okClass || 'danger');
+      }
+      if (cancelBtn) {
+        cancelBtn.textContent = options.cancelText || 'Cancelar';
+      }
+
+      let settled = false;
+      function cleanup(val) {
+        if (settled) return;
+        settled = true;
+        if (okBtn) okBtn.removeEventListener('click', onOk);
+        if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+        dialog.removeEventListener('cancel', onCancel);
+        try {
+          if (dialog.open) dialog.close();
+        } catch (e) {}
+        resolve(val);
+      }
+
+      function onOk(e) {
+        e.preventDefault();
+        cleanup(true);
+      }
+
+      function onCancel(e) {
+        e.preventDefault();
+        cleanup(false);
+      }
+
+      if (okBtn) okBtn.addEventListener('click', onOk);
+      if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+      dialog.addEventListener('cancel', onCancel);
+
+      try {
+        dialog.showModal();
+      } catch (err) {
+        resolve(true);
+      }
+    });
   }
 
   // ── Toast Notification System ─────────────────────────────────────
@@ -5903,6 +6088,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     renderSpacedRepetitionView: renderSpacedRepetitionView,
     switchView: switchView,
     switchSubtab: switchSubtab,
+    showCustomConfirm: showCustomConfirm,
     exportBackupData: exportBackupData,
     runDataAudit: runDataAudit,
     learning: LEARNING_ENGINE,
