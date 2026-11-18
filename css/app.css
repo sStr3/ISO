@@ -3120,6 +3120,314 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:foc
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   FASE 6 — MÓDULOS C Y D: MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Mapa de Dominio T1-T6 (Módulo C) ── */
+.mastery-grid-pro {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.mastery-topic-card {
+  background: var(--surface-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+}
+.mastery-topic-card:hover {
+  border-color: var(--border-light) !important;
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px) !important;
+}
+[data-theme="light"] .mastery-topic-card {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+}
+[data-theme="light"] .mastery-topic-card:hover {
+  border-color: var(--accent) !important;
+}
+
+.mastery-card-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 10px !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.mastery-level-badge {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  padding: 3px 10px !important;
+  border-radius: var(--radius-pill) !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.mastery-level-badge.mastered {
+  background: var(--ok-bg) !important;
+  color: var(--ok) !important;
+  border: 1px solid var(--ok-border) !important;
+}
+.mastery-level-badge.consolidating {
+  background: var(--warn-bg) !important;
+  color: var(--warn) !important;
+  border: 1px solid var(--warn-border) !important;
+}
+.mastery-level-badge.developing {
+  background: var(--err-bg) !important;
+  color: var(--err) !important;
+  border: 1px solid var(--err-border) !important;
+}
+.mastery-level-badge.unexplored {
+  background: var(--surface-raised) !important;
+  color: var(--text-dim) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.mastery-progress-section {
+  margin: 14px 0 !important;
+}
+
+.mastery-metric-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 0.82rem !important;
+  margin-bottom: 6px !important;
+}
+
+.mastery-metric-label {
+  color: var(--text-muted) !important;
+  font-weight: 600 !important;
+}
+
+.mastery-metric-val {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-weight: 800 !important;
+  color: var(--text-pure) !important;
+}
+
+.mastery-states-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 10px !important;
+  margin: 12px 0 !important;
+  text-align: center !important;
+}
+[data-theme="light"] .mastery-states-grid {
+  background: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+.mastery-state-item {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.mastery-state-num {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  color: var(--text-pure) !important;
+}
+.mastery-state-lbl {
+  font-size: 0.68rem !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* ── Centro de Errores y Categorización Cognitiva (Módulo D) ── */
+.error-tax-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.error-tax-card {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 14px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  cursor: pointer !important;
+  transition: all 0.16s ease !important;
+}
+.error-tax-card:hover {
+  border-color: var(--border-light) !important;
+  transform: translateY(-1px) !important;
+}
+.error-tax-card.active-filter {
+  border-color: var(--accent) !important;
+  background: var(--accent-subtle) !important;
+}
+[data-theme="light"] .error-tax-card {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+}
+[data-theme="light"] .error-tax-card.active-filter {
+  border-color: var(--accent) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+.error-advice-box {
+  background: var(--surface-card) !important;
+  border: 1px solid var(--border) !important;
+  border-left: 4px solid var(--accent) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 16px 20px !important;
+  margin-bottom: 24px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 14px !important;
+}
+[data-theme="light"] .error-advice-box {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  border-left-color: var(--accent) !important;
+}
+
+/* Selector Rápido de Categorías Cognitivas */
+.category-pills-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin: 12px 0 !important;
+}
+
+.category-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  border-radius: var(--radius-pill) !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-raised) !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.category-pill:hover {
+  border-color: var(--border-light) !important;
+  color: var(--text-pure) !important;
+  transform: translateY(-1px) !important;
+}
+.category-pill:active {
+  transform: translateY(1px) scale(0.96) !important;
+}
+[data-theme="light"] .category-pill {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #334155 !important;
+}
+
+/* Categorías específicas seleccionadas */
+.category-pill.selected[data-cat="concept"],
+.category-pill.selected.concept {
+  background: var(--err-bg) !important;
+  color: var(--err) !important;
+  border-color: var(--err-border) !important;
+  font-weight: 800 !important;
+}
+.category-pill.selected[data-cat="confusion"],
+.category-pill.selected.confusion {
+  background: var(--warn-bg) !important;
+  color: var(--warn) !important;
+  border-color: var(--warn-border) !important;
+  font-weight: 800 !important;
+}
+.category-pill.selected[data-cat="reading"],
+.category-pill.selected.reading {
+  background: var(--accent-subtle) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent-border) !important;
+  font-weight: 800 !important;
+}
+.category-pill.selected[data-cat="calculation"],
+.category-pill.selected.calculation {
+  background: rgba(139, 92, 246, 0.16) !important;
+  color: #A78BFA !important;
+  border-color: rgba(139, 92, 246, 0.45) !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .category-pill.selected[data-cat="calculation"],
+[data-theme="light"] .category-pill.selected.calculation {
+  background: rgba(109, 40, 217, 0.12) !important;
+  color: #6D28D9 !important;
+  border-color: rgba(109, 40, 217, 0.45) !important;
+}
+.category-pill.selected[data-cat="lapse"],
+.category-pill.selected.lapse {
+  background: var(--ok-bg) !important;
+  color: var(--ok) !important;
+  border-color: var(--ok-border) !important;
+  font-weight: 800 !important;
+}
+
+/* Tarjeta Pro de Pregunta en Centro de Errores */
+.mistake-card-pro {
+  background: var(--surface-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 20px 24px !important;
+  margin-bottom: 18px !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.18s ease !important;
+}
+.mistake-card-pro:hover {
+  border-color: var(--border-light) !important;
+}
+[data-theme="light"] .mistake-card-pro {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+}
+
+.mistake-repeat-badge {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.mistake-repeat-badge.critical {
+  background: var(--err-bg) !important;
+  color: var(--err) !important;
+  border: 1px solid var(--err-border) !important;
+}
+.mistake-repeat-badge.normal {
+  background: var(--surface-raised) !important;
+  color: var(--text-dim) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    ACCESIBILIDAD Y REDUCED MOTION
    ═══════════════════════════════════════════════════════════════════ */
 

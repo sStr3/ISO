@@ -515,13 +515,15 @@
 
   function validateAnnotation(entry) {
     if (!entry || typeof entry !== 'object') {
-      return { notes: '', isFavorite: false, flaggedForReview: false, customTag: '', updatedAt: null };
+      return { notes: '', isFavorite: false, flaggedForReview: false, customTag: '', errorCategory: null, updatedAt: null };
     }
+    const validCat = ['concept', 'confusion', 'reading', 'calculation', 'lapse'].includes(entry.errorCategory) ? entry.errorCategory : null;
     return {
       notes: typeof entry.notes === 'string' ? entry.notes.slice(0, 2000) : '',
       isFavorite: Boolean(entry.isFavorite),
       flaggedForReview: Boolean(entry.flaggedForReview),
       customTag: typeof entry.customTag === 'string' ? entry.customTag.slice(0, 50) : '',
+      errorCategory: validCat,
       updatedAt: entry.updatedAt && !isNaN(Date.parse(entry.updatedAt)) ? entry.updatedAt : null
     };
   }
@@ -680,6 +682,7 @@
           isFavorite: false,
           flaggedForReview: false,
           customTag: '',
+          errorCategory: null,
           updatedAt: null
         };
       }
@@ -780,6 +783,186 @@
         else if (st.state === 'learning') scoreSum += 0.3;
       });
       return Math.round((scoreSum / topicQs.length) * 100);
+    },
+
+    setErrorCategory(questionId, categoryId) {
+      if (categoryId && !['concept', 'confusion', 'reading', 'calculation', 'lapse'].includes(categoryId)) {
+        categoryId = null;
+      }
+      const cur = this.getAnnotation(questionId);
+      const newCat = cur.errorCategory === categoryId ? null : categoryId;
+      this.setAnnotation(questionId, { errorCategory: newCat });
+      return newCat;
+    },
+
+    getTopicDeepStats(topicKey) {
+      const topicQs = APP.questions.filter(q => q.t === topicKey);
+      const total = topicQs.length;
+      if (total === 0) return null;
+
+      let practiced = 0;
+      const states = { new: 0, pending: 0, learning: 0, consolidating: 0, mastered: 0 };
+      let topicMistakes = 0;
+
+      topicQs.forEach(q => {
+        const st = APP.learningState[q.id];
+        if (st) {
+          if (st.totalAttempts > 0) practiced++;
+          const stateKey = states[st.state] !== undefined ? st.state : 'new';
+          states[stateKey]++;
+        } else {
+          states.new++;
+        }
+        if (APP.mistakesBank[q.id]) {
+          topicMistakes++;
+        }
+      });
+
+      let attemptsCount = 0;
+      let correctAttempts = 0;
+      APP.answerAttempts.forEach(att => {
+        const q = APP.questions.find(x => x.id === att.questionId);
+        if (q && q.t === topicKey) {
+          attemptsCount++;
+          if (att.isCorrect) correctAttempts++;
+        }
+      });
+
+      const coveragePct = total > 0 ? Math.round((practiced / total) * 100) : 0;
+      const accuracyRate = attemptsCount > 0 ? Math.round((correctAttempts / attemptsCount) * 100) : 0;
+
+      let scoreSum = 0;
+      topicQs.forEach(q => {
+        const st = APP.learningState[q.id];
+        if (!st) return;
+        if (st.state === 'mastered') scoreSum += 1.0;
+        else if (st.state === 'consolidating') scoreSum += 0.7;
+        else if (st.state === 'learning') scoreSum += 0.35;
+      });
+      const retentionScore = Math.round((scoreSum / total) * 100);
+
+      let rawMastery = Math.round((coveragePct * 0.4) + (retentionScore * 0.6));
+      if (topicMistakes > 0) {
+        rawMastery = Math.max(0, rawMastery - Math.min(15, topicMistakes * 2));
+      }
+      const masteryScore = Math.min(100, Math.max(0, rawMastery));
+
+      let level = 'unexplored';
+      let levelLabel = 'SIN EXPLORAR';
+      if (coveragePct === 0) {
+        level = 'unexplored';
+        levelLabel = 'SIN EXPLORAR';
+      } else if (masteryScore < 40) {
+        level = 'developing';
+        levelLabel = 'EN DESARROLLO';
+      } else if (masteryScore < 75) {
+        level = 'consolidating';
+        levelLabel = 'CONSOLIDANDO';
+      } else {
+        level = 'mastered';
+        levelLabel = 'DOMINADO';
+      }
+
+      const officialWeights = {
+        T1: { questions: 8, share: '16%' },
+        T2: { questions: 20, share: '40%' },
+        T3: { questions: 6, share: '12%' },
+        T4: { questions: 16, share: '32%' },
+        T5: { questions: 0, share: 'Ampliación' },
+        T6: { questions: 0, share: 'Ampliación' }
+      };
+
+      return {
+        topicKey,
+        title: (APP.topicMeta[topicKey] || {}).title || topicKey,
+        color: (APP.topicMeta[topicKey] || {}).color || 'var(--accent)',
+        total,
+        practiced,
+        coveragePct,
+        states,
+        topicMistakes,
+        attemptsCount,
+        accuracyRate,
+        retentionScore,
+        masteryScore,
+        level,
+        levelLabel,
+        official: officialWeights[topicKey] || { questions: 0, share: '-' }
+      };
+    },
+
+    getAllTopicsMasteryMap() {
+      const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+      const map = {};
+      let totalMastery = 0;
+      topicKeys.forEach(k => {
+        map[k] = this.getTopicDeepStats(k);
+        if (map[k]) totalMastery += map[k].masteryScore;
+      });
+      return {
+        topics: map,
+        avgMastery: Math.round(totalMastery / topicKeys.length)
+      };
+    },
+
+    getErrorsDiagnosisSummary() {
+      const mistakeIds = Object.keys(APP.mistakesBank);
+      const totalMistakes = mistakeIds.length;
+      let repeatMistakes = 0;
+      const byTopic = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0, T6: 0 };
+      const byCategory = {
+        concept: 0,
+        confusion: 0,
+        reading: 0,
+        calculation: 0,
+        lapse: 0,
+        uncategorized: 0
+      };
+
+      mistakeIds.forEach(id => {
+        const count = APP.mistakesBank[id] || 1;
+        if (count >= 2) repeatMistakes++;
+        const q = APP.questions.find(x => x.id === id);
+        if (q && q.t) {
+          byTopic[q.t] = (byTopic[q.t] || 0) + 1;
+        }
+        const ann = APP.personalAnnotations[id];
+        const cat = ann && ann.errorCategory ? ann.errorCategory : 'uncategorized';
+        if (byCategory[cat] !== undefined) byCategory[cat]++;
+        else byCategory.uncategorized++;
+      });
+
+      const categorizedCount = totalMistakes - byCategory.uncategorized;
+      const categorizedPct = totalMistakes > 0 ? Math.round((categorizedCount / totalMistakes) * 100) : 0;
+
+      let dominantCat = null;
+      let maxCatCount = 0;
+      ['concept', 'confusion', 'reading', 'calculation', 'lapse'].forEach(c => {
+        if (byCategory[c] > maxCatCount) {
+          maxCatCount = byCategory[c];
+          dominantCat = c;
+        }
+      });
+
+      let worstTopic = 'T2';
+      let maxTopicCount = -1;
+      ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].forEach(t => {
+        if (byTopic[t] > maxTopicCount) {
+          maxTopicCount = byTopic[t];
+          worstTopic = t;
+        }
+      });
+
+      return {
+        totalMistakes,
+        repeatMistakes,
+        byTopic,
+        byCategory,
+        categorizedCount,
+        categorizedPct,
+        dominantCat,
+        worstTopic
+      };
     },
 
     auditDataIntegrity() {
@@ -1290,73 +1473,726 @@
     `;
   }
 
-  // ── Centro de Errores: Diagnóstico Temático ───────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // FASE 6 — MÓDULOS C Y D: MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES
+  // ═══════════════════════════════════════════════════════════════════
+
+  const ERROR_CATEGORIES = {
+    concept: {
+      id: 'concept',
+      label: 'Desconocimiento Teórico',
+      shortLabel: 'Teoría',
+      icon: '🧠',
+      desc: 'No conocía el concepto, estructura o llamada al sistema',
+      color: 'var(--err)'
+    },
+    confusion: {
+      id: 'confusion',
+      label: 'Confusión Conceptual',
+      shortLabel: 'Confusión',
+      icon: '🔄',
+      desc: 'Duda entre conceptos análogos o términos similares',
+      color: 'var(--warn)'
+    },
+    reading: {
+      id: 'reading',
+      label: 'Error de Lectura / Trampa',
+      shortLabel: 'Lectura',
+      icon: '👁️',
+      desc: 'Lectura apresurada, negación inadvertida o caso límite',
+      color: 'var(--accent)'
+    },
+    calculation: {
+      id: 'calculation',
+      label: 'Cálculo / Traza',
+      shortLabel: 'Cálculo',
+      icon: '🧮',
+      desc: 'Fallo aritmético en algoritmos o cómputo de memoria/inodos',
+      color: '#A78BFA'
+    },
+    lapse: {
+      id: 'lapse',
+      label: 'Descuido / Lapsus',
+      shortLabel: 'Descuido',
+      icon: '⚡',
+      desc: 'Sabía la respuesta pero marqué por descuido o prisa',
+      color: 'var(--ok)'
+    }
+  };
+
+  const ERRORS_STATE = {
+    view: 'diagnosis', // 'diagnosis' | 'mastery'
+    topicFilter: 'ALL',
+    categoryFilter: 'ALL',
+    recurrenceFilter: 'ALL',
+    searchQuery: ''
+  };
+
+  function updateErrorsDiagnosisCounters() {
+    const summary = LEARNING_ENGINE.getErrorsDiagnosisSummary();
+    const totalEl = document.getElementById('diag-stat-total');
+    if (totalEl) totalEl.textContent = summary.totalMistakes;
+    const repEl = document.getElementById('diag-stat-repeat');
+    if (repEl) repEl.textContent = summary.repeatMistakes;
+    const catEl = document.getElementById('diag-stat-cat');
+    if (catEl) catEl.textContent = `${summary.categorizedPct}% (${summary.categorizedCount}/${summary.totalMistakes})`;
+  }
+
+  function setMistakeCategory(questionId, categoryId) {
+    AUDIO.playClick();
+    const newCat = LEARNING_ENGINE.setErrorCategory(questionId, categoryId);
+    const card = document.getElementById(`mistake-card-${questionId}`);
+    if (card) {
+      const pills = card.querySelectorAll('.category-pill');
+      pills.forEach(p => {
+        const cat = p.getAttribute('data-cat');
+        if (cat === newCat) {
+          p.classList.add('selected', newCat);
+        } else {
+          p.classList.remove('selected', 'concept', 'confusion', 'reading', 'calculation', 'lapse');
+        }
+      });
+    }
+    updateErrorsDiagnosisCounters();
+  }
+
+  function practiceSingleMistake(questionId) {
+    const q = APP.questions.find(x => x.id === questionId);
+    if (!q) return;
+    AUDIO.playClick();
+    setupQuizSession({
+      name: `Refuerzo: Pregunta #${q.id}`,
+      questions: [q],
+      isTutorMode: true,
+      isOfficial50: false,
+      timeLimitSec: 0
+    });
+  }
+
+  function startFilteredMistakesQuiz() {
+    const mistakeIds = Object.keys(APP.mistakesBank);
+    let mistakes = APP.questions.filter(q => mistakeIds.includes(q.id));
+
+    if (ERRORS_STATE.topicFilter !== 'ALL') {
+      mistakes = mistakes.filter(q => q.t === ERRORS_STATE.topicFilter);
+    }
+    if (ERRORS_STATE.categoryFilter !== 'ALL') {
+      if (ERRORS_STATE.categoryFilter === 'uncategorized') {
+        mistakes = mistakes.filter(q => !APP.personalAnnotations[q.id] || !APP.personalAnnotations[q.id].errorCategory);
+      } else {
+        mistakes = mistakes.filter(q => APP.personalAnnotations[q.id] && APP.personalAnnotations[q.id].errorCategory === ERRORS_STATE.categoryFilter);
+      }
+    }
+    if (ERRORS_STATE.recurrenceFilter === 'REPEAT') {
+      mistakes = mistakes.filter(q => (APP.mistakesBank[q.id] || 1) >= 2);
+    }
+    if (ERRORS_STATE.searchQuery.trim()) {
+      const qLower = ERRORS_STATE.searchQuery.toLowerCase();
+      mistakes = mistakes.filter(q => (q.q && q.q.toLowerCase().includes(qLower)) || (q.ex && q.ex.toLowerCase().includes(qLower)));
+    }
+
+    if (mistakes.length === 0) {
+      showToast('No hay preguntas que coincidan con los filtros seleccionados.', 'warn');
+      return;
+    }
+
+    AUDIO.playClick();
+    setupQuizSession({
+      name: `Refuerzo de Fallos (${mistakes.length} Preguntas)`,
+      questions: shuffleArray(mistakes),
+      isTutorMode: true,
+      isOfficial50: false,
+      timeLimitSec: 0
+    });
+  }
+
   function renderErrorsDiagnosis() {
     const container = document.getElementById('review-errors-diagnosis-container');
     if (!container) return;
 
+    const summary = LEARNING_ENGINE.getErrorsDiagnosisSummary();
+    const masteryData = LEARNING_ENGINE.getAllTopicsMasteryMap();
     const mistakeIds = Object.keys(APP.mistakesBank);
     const mistakes = APP.questions.filter(q => mistakeIds.includes(q.id));
 
-    if (mistakes.length === 0) {
-      container.innerHTML = `
-        <div class="readiness-card" style="text-align:center; padding:36px;">
-          <div style="width:52px; height:52px; border-radius:50%; background:var(--ok-bg); border:1px solid var(--ok-border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:var(--ok);">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <h3 style="font-size:1.2rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">¡Sin errores pendientes!</h3>
-          <p style="font-size:0.88rem; color:var(--text-muted); max-width:440px; margin:0 auto 20px;">No tienes preguntas falladas en este momento. Completa más simulacros oficiales para que el diagnóstico analice tus patrones de error.</p>
-          <button class="act-btn-pro primary" onclick="window.ISO_STUDIO.startOfficialQuiz()">Hacer Simulacro Oficial</button>
-        </div>
-      `;
-      return;
-    }
-
-    const topicErrors = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0, T6: 0 };
-    mistakes.forEach(q => {
-      const t = q.t || 'T1';
-      topicErrors[t] = (topicErrors[t] || 0) + 1;
-    });
-
     let html = `
-      <div class="readiness-card" style="padding:24px; margin-bottom:20px;">
-        <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">
-          Distribución de Errores por Bloque Temático
-        </h3>
-        <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:20px;">
-          Tienes ${mistakes.length} preguntas en tu pila de fallos. Resuelve las dudas de los temas prioritarios para asegurar el aprobado.
-        </p>
-
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:20px;">
-    `;
-
-    ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].forEach(topKey => {
-      const count = topicErrors[topKey] || 0;
-      const meta = APP.topicMeta[topKey] || { title: topKey };
-      const pct = Math.round((count / mistakes.length) * 100);
-      html += `
-        <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span class="topic-tag mono" style="color:var(--${topKey}); font-weight:700;">${topKey}</span>
-            <span class="mono" style="font-size:0.85rem; font-weight:800; color:${count > 0 ? 'var(--err)' : 'var(--text-dim)'};">${count} fallos</span>
-          </div>
-          <div style="font-size:0.82rem; color:var(--text-pure); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${meta.title}</div>
-          <div class="progress-rail"><div class="progress-fill" style="width:${pct}%; background:${count > 0 ? 'var(--err)' : 'var(--border)'};"></div></div>
+      <!-- Top Title Bar & View Toggle -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:14px;">
+        <div>
+          <h2 style="font-size:1.35rem; font-weight:800; color:var(--text-pure); margin-bottom:4px; display:flex; align-items:center; gap:10px;">
+            <span>Centro de Errores & Mapa de Dominio</span>
+            <span class="pulse-dot ${summary.totalMistakes > 0 ? 'err' : ''}"></span>
+          </h2>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin:0;">
+            Diagnóstico pedagógico, taxonomía de causas de fallo y cobertura matemática de los 6 temas oficiales.
+          </p>
         </div>
-      `;
-    });
-
-    html += `
-        </div>
-        <div style="display:flex; justify-content:flex-end;">
-          <button class="act-btn-pro primary" onclick="window.ISO_STUDIO.switchSubtab('review', 'review-stack')">
-            Resolver Dudas en la Pila LIFO →
+        <div style="display:inline-flex; background:var(--surface-raised); padding:4px; border-radius:var(--radius); border:1px solid var(--border); gap:4px;">
+          <button class="subtab-btn ${ERRORS_STATE.view === 'diagnosis' ? 'active' : ''}" id="btn-toggle-view-diagnosis" style="padding:6px 14px; font-size:0.82rem; border-radius:6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Diagnóstico de Fallos (${summary.totalMistakes})
           </button>
+          <button class="subtab-btn ${ERRORS_STATE.view === 'mastery' ? 'active' : ''}" id="btn-toggle-view-mastery" style="padding:6px 14px; font-size:0.82rem; border-radius:6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            Mapa de Dominio T1-T6 (${masteryData.avgMastery}% Maestría)
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards Strip -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:24px;">
+        <div class="analytics-card" style="padding:14px 18px; cursor:default;">
+          <div>
+            <div class="analytics-label mono">Pila de Fallos Activos</div>
+            <div class="analytics-num mono" id="diag-stat-total" style="color:${summary.totalMistakes > 0 ? 'var(--err)' : 'var(--ok)'}; font-size:1.8rem;">
+              ${summary.totalMistakes}
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-card" style="padding:14px 18px; cursor:default;">
+          <div>
+            <div class="analytics-label mono">Reincidentes (≥2 veces)</div>
+            <div class="analytics-num mono" id="diag-stat-repeat" style="color:${summary.repeatMistakes > 0 ? 'var(--warn)' : 'var(--text-dim)'}; font-size:1.8rem;">
+              ${summary.repeatMistakes}
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-card" style="padding:14px 18px; cursor:default;">
+          <div>
+            <div class="analytics-label mono">Categorizados</div>
+            <div class="analytics-num mono" id="diag-stat-cat" style="color:var(--accent); font-size:1.8rem;">
+              ${summary.categorizedPct}%
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-card" style="padding:14px 18px; cursor:default;">
+          <div>
+            <div class="analytics-label mono">Tema Más Afectado</div>
+            <div class="analytics-num mono" style="font-size:1.5rem; color:var(--text-pure);">
+              ${summary.worstTopic} <span style="font-size:0.8rem; color:var(--text-dim); font-weight:600;">(${(APP.topicMeta[summary.worstTopic]||{}).title ? (APP.topicMeta[summary.worstTopic].title.split(' ')[0]) : ''})</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-card" style="padding:14px 18px; cursor:default;">
+          <div>
+            <div class="analytics-label mono">Maestría Global Temarios</div>
+            <div class="analytics-num mono" style="font-size:1.8rem; color:${masteryData.avgMastery >= 75 ? 'var(--ok)' : (masteryData.avgMastery >= 40 ? 'var(--warn)' : 'var(--text-dim)')};">
+              ${masteryData.avgMastery}%
+            </div>
+          </div>
         </div>
       </div>
     `;
 
+    // ─────────────────────────────────────────────────────────────
+    // VIEW 1: MAPA DE DOMINIO T1-T6 (MÓDULO C)
+    // ─────────────────────────────────────────────────────────────
+    if (ERRORS_STATE.view === 'mastery') {
+      html += `
+        <div class="readiness-card" style="padding:24px; margin-bottom:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-pure); margin-bottom:2px;">
+                Cálculo Matemático de Maestría por Bloque Temático
+              </h3>
+              <p style="font-size:0.86rem; color:var(--text-muted); margin:0;">
+                Índice ponderado: <strong>40% Cobertura</strong> (preguntas practicadas sobre el total del banco) + <strong>60% Retención SM-2</strong> (aciertos y consolidación permanente).
+              </p>
+            </div>
+            <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--ok); background:var(--ok-bg); border:1px solid var(--ok-border); padding:4px 12px; border-radius:var(--radius-pill);">
+              ● Algoritmo de Dominio Real
+            </span>
+          </div>
+
+          <div class="mastery-grid-pro" style="margin-top:20px;">
+      `;
+
+      ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].forEach(topKey => {
+        const stats = masteryData.topics[topKey];
+        if (!stats) return;
+
+        let levelClass = 'unexplored';
+        if (stats.level === 'mastered') levelClass = 'mastered';
+        else if (stats.level === 'consolidating') levelClass = 'consolidating';
+        else if (stats.level === 'developing') levelClass = 'developing';
+
+        html += `
+          <div class="mastery-topic-card" id="mastery-card-${topKey}">
+            <div>
+              <div class="mastery-card-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="topic-tag mono" style="background:rgba(255,255,255,0.08); color:${stats.color}; border:1px solid ${stats.color}40; font-size:0.85rem; font-weight:800;">
+                    ${topKey}
+                  </span>
+                  <span class="mono" style="font-size:0.75rem; color:var(--text-dim); background:var(--surface-raised); padding:2px 8px; border-radius:4px; border:1px solid var(--border);">
+                    ${stats.official.share !== '-' ? stats.official.share + ' en Oficial' : 'Ampliación'}
+                  </span>
+                </div>
+                <span class="mastery-level-badge ${levelClass}">
+                  ${stats.levelLabel}
+                </span>
+              </div>
+
+              <div style="font-size:1.02rem; font-weight:800; color:var(--text-pure); margin-bottom:12px;">
+                ${stats.title}
+              </div>
+
+              <!-- Metrics Section -->
+              <div class="mastery-progress-section">
+                <div class="mastery-metric-row">
+                  <span class="mastery-metric-label">Cobertura del Temario:</span>
+                  <span class="mastery-metric-val">${stats.practiced} / ${stats.total} (${stats.coveragePct}%)</span>
+                </div>
+                <div class="progress-rail" style="height:6px; margin-bottom:10px;">
+                  <div class="progress-fill" style="width:${stats.coveragePct}%; background:${stats.color};"></div>
+                </div>
+
+                <div class="mastery-metric-row">
+                  <span class="mastery-metric-label">Retención & Precisión:</span>
+                  <span class="mastery-metric-val">${stats.retentionScore}%</span>
+                </div>
+                <div class="progress-rail" style="height:6px; margin-bottom:10px;">
+                  <div class="progress-fill" style="width:${stats.retentionScore}%; background:${stats.retentionScore >= 70 ? 'var(--ok)' : (stats.retentionScore >= 40 ? 'var(--warn)' : 'var(--err)')};"></div>
+                </div>
+
+                <div class="mastery-metric-row" style="margin-top:12px; padding-top:8px; border-top:1px dashed var(--border);">
+                  <span class="mastery-metric-label" style="font-weight:700; color:var(--text-pure);">Índice Compuesto de Maestría:</span>
+                  <span class="mastery-metric-val" style="font-size:1.05rem; color:${stats.masteryScore >= 75 ? 'var(--ok)' : (stats.masteryScore >= 40 ? 'var(--warn)' : 'var(--text-dim)')};">
+                    ${stats.masteryScore}%
+                  </span>
+                </div>
+              </div>
+
+              <!-- States Breakdown Grid -->
+              <div class="mastery-states-grid">
+                <div class="mastery-state-item">
+                  <span class="mastery-state-num" style="color:var(--text-dim);">${stats.states.new}</span>
+                  <span class="mastery-state-lbl">Nuevas</span>
+                </div>
+                <div class="mastery-state-item">
+                  <span class="mastery-state-num" style="color:var(--warn);">${stats.states.learning}</span>
+                  <span class="mastery-state-lbl">Aprender</span>
+                </div>
+                <div class="mastery-state-item">
+                  <span class="mastery-state-num" style="color:var(--accent);">${stats.states.consolidating}</span>
+                  <span class="mastery-state-lbl">Afianzar</span>
+                </div>
+                <div class="mastery-state-item">
+                  <span class="mastery-state-num" style="color:var(--ok);">${stats.states.mastered}</span>
+                  <span class="mastery-state-lbl">Dominadas</span>
+                </div>
+              </div>
+
+              ${stats.topicMistakes > 0 ? `
+                <div style="font-size:0.78rem; color:var(--err); margin-bottom:12px; display:flex; align-items:center; gap:6px;" class="mono">
+                  <span>⚠️ ${stats.topicMistakes} ${stats.topicMistakes === 1 ? 'pregunta fallada pendiente' : 'preguntas falladas pendientes'}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Actions Row -->
+            <div style="display:flex; gap:8px; margin-top:14px;">
+              <button class="act-btn-pro" style="flex:1; justify-content:center; padding:8px 12px; font-size:0.82rem;" onclick="window.ISO_STUDIO.startTopicTest('${topKey}', 15)">
+                Entrenar 15Q
+              </button>
+              ${stats.topicMistakes > 0 ? `
+                <button class="act-btn-pro danger" style="padding:8px 12px; font-size:0.82rem;" onclick="window.ISO_STUDIO.setErrorsTopicFilter('${topKey}')">
+                  Ver Fallos (${stats.topicMistakes})
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // VIEW 2: DIAGNÓSTICO DE FALLOS Y TAXONOMÍA (MÓDULO D)
+    // ─────────────────────────────────────────────────────────────
+    if (ERRORS_STATE.view === 'diagnosis') {
+      if (mistakes.length === 0) {
+        html += `
+          <div class="readiness-card" style="text-align:center; padding:44px 20px;">
+            <div style="width:56px; height:56px; border-radius:50%; background:var(--ok-bg); border:1px solid var(--ok-border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:var(--ok);">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h3 style="font-size:1.25rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">¡Excelente! Sin fallos pendientes en la pila</h3>
+            <p style="font-size:0.9rem; color:var(--text-muted); max-width:480px; margin:0 auto 24px;">
+              Todas las preguntas falladas han sido dominadas o aclaradas. Realiza un nuevo simulacro oficial para poner a prueba tus conocimientos.
+            </p>
+            <div style="display:inline-flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+              <button class="act-btn-pro primary" onclick="window.ISO_STUDIO.startOfficialQuiz()">
+                Iniciar Simulacro Oficial (50Q)
+              </button>
+              <button class="act-btn-pro" onclick="window.ISO_STUDIO.setErrorsView('mastery')">
+                Ver Mapa de Dominio T1-T6
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        // Cognitive Taxonomy Breakdown
+        html += `
+          <div style="margin-bottom:14px;">
+            <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+              Taxonomía Cognitiva de Errores
+            </h3>
+            <p style="font-size:0.86rem; color:var(--text-muted); margin:0 0 16px 0;">
+              Haz clic en cualquier categoría para filtrar instantáneamente las preguntas y centrar tu refuerzo.
+            </p>
+
+            <div class="error-tax-grid">
+        `;
+
+        Object.values(ERROR_CATEGORIES).forEach(cat => {
+          const count = summary.byCategory[cat.id] || 0;
+          const pct = summary.totalMistakes > 0 ? Math.round((count / summary.totalMistakes) * 100) : 0;
+          const isFilterActive = ERRORS_STATE.categoryFilter === cat.id;
+
+          html += `
+            <div class="error-tax-card ${isFilterActive ? 'active-filter' : ''}" onclick="window.ISO_STUDIO.setErrorsCategoryFilter('${cat.id}')">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:1.1rem;">${cat.icon}</span>
+                <span class="mono" style="font-size:0.85rem; font-weight:800; color:${count > 0 ? cat.color : 'var(--text-dim)'};">
+                  ${count} (${pct}%)
+                </span>
+              </div>
+              <div style="font-size:0.9rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+                ${cat.label}
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+                ${cat.desc}
+              </div>
+              <div class="progress-rail" style="height:4px; margin-top:10px;">
+                <div class="progress-fill" style="width:${pct}%; background:${cat.color};"></div>
+              </div>
+            </div>
+          `;
+        });
+
+        // Uncategorized Card
+        const uncatCount = summary.byCategory.uncategorized || 0;
+        const uncatPct = summary.totalMistakes > 0 ? Math.round((uncatCount / summary.totalMistakes) * 100) : 0;
+        const isUncatActive = ERRORS_STATE.categoryFilter === 'uncategorized';
+
+        html += `
+              <div class="error-tax-card ${isUncatActive ? 'active-filter' : ''}" onclick="window.ISO_STUDIO.setErrorsCategoryFilter('uncategorized')">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <span style="font-size:1.1rem;">❓</span>
+                  <span class="mono" style="font-size:0.85rem; font-weight:800; color:${uncatCount > 0 ? 'var(--warn)' : 'var(--text-dim)'};">
+                    ${uncatCount} (${uncatPct}%)
+                  </span>
+                </div>
+                <div style="font-size:0.9rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+                  Sin Categorizar
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+                  Asigna causa para que el algoritmo calibre tu diagnóstico.
+                </div>
+                <div class="progress-rail" style="height:4px; margin-top:10px;">
+                  <div class="progress-fill" style="width:${uncatPct}%; background:var(--warn);"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Automated Pedagogical Advice Box
+        let adviceText = '';
+        if (summary.dominantCat === 'confusion') {
+          adviceText = `Tu causa principal de fallo es la <strong>Confusión Conceptual</strong> (${summary.byCategory.confusion} fallos), concentrada mayormente en <strong>${summary.worstTopic}</strong>. Te recomendamos elaborar esquemas comparativos para diferenciar conceptos análogos (como tuberías con nombre vs anónimas, hilos en espacio de usuario vs kernel, o memoria paginada vs segmentada) antes de seguir memorizando enunciados sueltos.`;
+        } else if (summary.dominantCat === 'reading') {
+          adviceText = `El patrón dominante detectado es <strong>Error de Lectura / Trampa</strong> (${summary.byCategory.reading} fallos). Varios ítems oficiales incluyen formulaciones negativas ("¿Cuál NO es cierta?", "Ninguna de las anteriores"). Te aconsejamos pausar 3 segundos adicionales en cada enunciado para identificar la condición excluyente antes de marcar la opción.`;
+        } else if (summary.dominantCat === 'concept') {
+          adviceText = `Tienes <strong>${summary.byCategory.concept} fallos por Desconocimiento Teórico</strong>. Para estos conceptos, no basta con intentar recordar la respuesta correcta: activa el <strong>Modo Tutor Guiado</strong> en la Sesión Inteligente para estudiar las explicaciones pedagógicas paso a paso.`;
+        } else if (summary.dominantCat === 'calculation') {
+          adviceText = `Presentas fallos por <strong>Cálculo / Traza de Algoritmos</strong> (${summary.byCategory.calculation} fallos). Practica la simulación manual paso a paso de Round Robin (con quantums exactos), tablas de páginas multinivel y cálculo de bloques de inodos indirectos.`;
+        } else if (summary.dominantCat === 'lapse') {
+          adviceText = `Tus errores se deben principalmente a <strong>Descuido o Prisa</strong> (${summary.byCategory.lapse} fallos). Recuerda la normativa oficial del examen: cada error resta 1.0 punto neto. Si tienes dudas razonables en un simulacro, dejar la pregunta en blanco conserva tu puntuación neta.`;
+        } else {
+          adviceText = `Tienes <strong>${uncatCount} preguntas sin clasificar</strong>. Clasifícalas pulsando las etiquetas de abajo para que el sistema trace tu diagnóstico pedagógico personalizado.`;
+        }
+
+        html += `
+          <div class="error-advice-box">
+            <div style="font-size:1.5rem; flex-shrink:0;">💡</div>
+            <div>
+              <div style="font-size:0.95rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+                Dictamen Pedagógico Automatizado
+              </div>
+              <div style="font-size:0.88rem; color:var(--text-muted); line-height:1.55;">
+                ${adviceText}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Filters Bar
+        let filteredMistakes = mistakes;
+        if (ERRORS_STATE.topicFilter !== 'ALL') {
+          filteredMistakes = filteredMistakes.filter(q => q.t === ERRORS_STATE.topicFilter);
+        }
+        if (ERRORS_STATE.categoryFilter !== 'ALL') {
+          if (ERRORS_STATE.categoryFilter === 'uncategorized') {
+            filteredMistakes = filteredMistakes.filter(q => !APP.personalAnnotations[q.id] || !APP.personalAnnotations[q.id].errorCategory);
+          } else {
+            filteredMistakes = filteredMistakes.filter(q => APP.personalAnnotations[q.id] && APP.personalAnnotations[q.id].errorCategory === ERRORS_STATE.categoryFilter);
+          }
+        }
+        if (ERRORS_STATE.recurrenceFilter === 'REPEAT') {
+          filteredMistakes = filteredMistakes.filter(q => (APP.mistakesBank[q.id] || 1) >= 2);
+        }
+        if (ERRORS_STATE.searchQuery.trim()) {
+          const qLower = ERRORS_STATE.searchQuery.toLowerCase();
+          filteredMistakes = filteredMistakes.filter(q => (q.q && q.q.toLowerCase().includes(qLower)) || (q.ex && q.ex.toLowerCase().includes(qLower)));
+        }
+
+        html += `
+          <!-- Interactive Filters Bar -->
+          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <!-- Search Input -->
+              <input type="text" id="diag-search-input" placeholder="Buscar en preguntas falladas..." value="${escapeHtml(ERRORS_STATE.searchQuery)}" style="flex:1; min-width:220px; height:40px; padding:8px 14px; font-size:0.88rem; border-radius:6px; background:var(--surface-card); border:1px solid var(--border); color:var(--text-pure);">
+
+              <!-- Topic Filter -->
+              <select id="diag-topic-filter" style="width:170px; height:40px; padding:6px 10px; font-size:0.82rem; font-family:'IBM Plex Mono', monospace; border-radius:6px; background:var(--surface-card); border:1px solid var(--border); color:var(--text-pure); cursor:pointer;">
+                <option value="ALL" ${ERRORS_STATE.topicFilter === 'ALL' ? 'selected' : ''}>Todos los Temas</option>
+                <option value="T1" ${ERRORS_STATE.topicFilter === 'T1' ? 'selected' : ''}>T1: Intro SSOO</option>
+                <option value="T2" ${ERRORS_STATE.topicFilter === 'T2' ? 'selected' : ''}>T2: Procesos (40%)</option>
+                <option value="T3" ${ERRORS_STATE.topicFilter === 'T3' ? 'selected' : ''}>T3: Memoria</option>
+                <option value="T4" ${ERRORS_STATE.topicFilter === 'T4' ? 'selected' : ''}>T4: E/S y Ficheros</option>
+                <option value="T5" ${ERRORS_STATE.topicFilter === 'T5' ? 'selected' : ''}>T5: Seguridad</option>
+                <option value="T6" ${ERRORS_STATE.topicFilter === 'T6' ? 'selected' : ''}>T6: Distribuidos</option>
+              </select>
+
+              <!-- Category Filter -->
+              <select id="diag-category-filter" style="width:200px; height:40px; padding:6px 10px; font-size:0.82rem; border-radius:6px; background:var(--surface-card); border:1px solid var(--border); color:var(--text-pure); cursor:pointer;">
+                <option value="ALL" ${ERRORS_STATE.categoryFilter === 'ALL' ? 'selected' : ''}>Todas las Causas</option>
+                <option value="uncategorized" ${ERRORS_STATE.categoryFilter === 'uncategorized' ? 'selected' : ''}>❓ Sin Categorizar</option>
+                <option value="concept" ${ERRORS_STATE.categoryFilter === 'concept' ? 'selected' : ''}>🧠 Desconocimiento Teórico</option>
+                <option value="confusion" ${ERRORS_STATE.categoryFilter === 'confusion' ? 'selected' : ''}>🔄 Confusión Conceptual</option>
+                <option value="reading" ${ERRORS_STATE.categoryFilter === 'reading' ? 'selected' : ''}>👁️ Error de Lectura</option>
+                <option value="calculation" ${ERRORS_STATE.categoryFilter === 'calculation' ? 'selected' : ''}>🧮 Cálculo / Traza</option>
+                <option value="lapse" ${ERRORS_STATE.categoryFilter === 'lapse' ? 'selected' : ''}>⚡ Descuido / Lapsus</option>
+              </select>
+
+              <!-- Recurrence Filter -->
+              <select id="diag-recurrence-filter" style="width:160px; height:40px; padding:6px 10px; font-size:0.82rem; border-radius:6px; background:var(--surface-card); border:1px solid var(--border); color:var(--text-pure); cursor:pointer;">
+                <option value="ALL" ${ERRORS_STATE.recurrenceFilter === 'ALL' ? 'selected' : ''}>Todos los Fallos</option>
+                <option value="REPEAT" ${ERRORS_STATE.recurrenceFilter === 'REPEAT' ? 'selected' : ''}>Reincidentes (≥2)</option>
+              </select>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <span class="mono" style="font-size:0.82rem; color:var(--text-dim);">
+                Mostrando <strong style="color:var(--text-pure);">${filteredMistakes.length}</strong> de <strong style="color:var(--text-pure);">${mistakes.length}</strong> fallos
+              </span>
+              <div style="display:flex; gap:10px;">
+                <button class="act-btn-pro" onclick="window.ISO_STUDIO.switchSubtab('review', 'review-stack')" style="padding:6px 14px; font-size:0.8rem;">
+                  Resolver en Pila LIFO →
+                </button>
+                <button class="act-btn-pro primary" id="btn-start-filtered-mistakes" style="padding:6px 16px; font-size:0.8rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Lanzar Test con Estos Fallos (${filteredMistakes.length})
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Render Filtered Mistakes Cards
+        if (filteredMistakes.length === 0) {
+          html += `
+            <div style="text-align:center; padding:36px 16px; color:var(--text-dim); background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius);">
+              No hay preguntas que coincidan con los filtros seleccionados.
+            </div>
+          `;
+        } else {
+          filteredMistakes.forEach((q, idx) => {
+            const failCount = APP.mistakesBank[q.id] || 1;
+            const meta = APP.topicMeta[q.t || 'T1'] || { title: q.t || 'T1', color: 'var(--accent)' };
+            const ann = APP.personalAnnotations[q.id] || { notes: '', isFavorite: false, errorCategory: null };
+            const curCat = ann.errorCategory;
+
+            html += `
+              <div class="mistake-card-pro" id="mistake-card-${q.id}">
+                <!-- Card Header -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="mono" style="font-size:0.8rem; font-weight:800; color:var(--text-dim);">#${idx + 1}</span>
+                    <span class="topic-tag mono" style="background:rgba(255,255,255,0.06); color:${meta.color}; border:1px solid ${meta.color}40; font-size:0.8rem;">
+                      ${q.t || 'T1'}
+                    </span>
+                    <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">${escapeHtml(q.source || '')}</span>
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="mistake-repeat-badge ${failCount >= 2 ? 'critical' : 'normal'}">
+                      Fallada ${failCount} ${failCount === 1 ? 'vez' : 'veces'}
+                    </span>
+                    <button class="favorite-star-btn ${ann.isFavorite ? 'active' : ''}" style="width:30px; height:30px; font-size:0.95rem;" title="Marcar como favorita" onclick="window.ISO_STUDIO.toggleMistakeFavorite('${q.id}')">
+                      ${ann.isFavorite ? '★' : '☆'}
+                    </button>
+                    <button class="act-btn-pro" style="padding:4px 10px; font-size:0.75rem; color:var(--ok); border-color:var(--ok-border);" onclick="window.ISO_STUDIO.deleteDoubt('${q.id}')">
+                      ✓ Aclarada
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Stem Text -->
+                <div style="font-size:1.15rem; font-weight:700; color:var(--text-pure); line-height:1.55; margin-bottom:14px;">
+                  ${escapeHtml(q.q)}
+                </div>
+
+                <!-- Correct Answer Box -->
+                <div style="background:var(--ok-bg); border:1px solid var(--ok-border); border-left:4px solid var(--ok); padding:12px 16px; border-radius:var(--radius-sm); margin-bottom:12px;">
+                  <div style="font-size:0.75rem; font-weight:800; color:var(--ok); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;" class="mono">
+                    ✓ Respuesta Oficial Correcta: [${q.ans === 0 ? 'A' : 'B'}]
+                  </div>
+                  <div style="font-size:0.98rem; font-weight:700; color:var(--text-pure);">
+                    ${escapeHtml(q.opts[q.ans])}
+                  </div>
+                </div>
+
+                <!-- Explanation -->
+                ${q.ex ? `
+                  <div style="background:var(--surface-raised); border:1px solid var(--border); padding:10px 14px; border-radius:var(--radius-sm); font-size:0.86rem; color:var(--text-muted); line-height:1.5; margin-bottom:14px;">
+                    <strong style="color:var(--text-pure);">Justificación:</strong> ${escapeHtml(q.ex)}
+                  </div>
+                ` : ''}
+
+                <!-- Category Pills Selector -->
+                <div style="border-top:1px dashed var(--border); padding-top:12px; margin-top:8px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                    <div style="font-size:0.78rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.4px;" class="mono">
+                      Categorizar Causa del Fallo:
+                    </div>
+                    <div class="category-pills-bar" style="margin:0;">
+                      <button class="category-pill ${curCat === 'concept' ? 'selected concept' : ''}" data-cat="concept" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'concept')">
+                        🧠 Teoría
+                      </button>
+                      <button class="category-pill ${curCat === 'confusion' ? 'selected confusion' : ''}" data-cat="confusion" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'confusion')">
+                        🔄 Confusión
+                      </button>
+                      <button class="category-pill ${curCat === 'reading' ? 'selected reading' : ''}" data-cat="reading" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'reading')">
+                        👁️ Lectura
+                      </button>
+                      <button class="category-pill ${curCat === 'calculation' ? 'selected calculation' : ''}" data-cat="calculation" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'calculation')">
+                        🧮 Cálculo
+                      </button>
+                      <button class="category-pill ${curCat === 'lapse' ? 'selected lapse' : ''}" data-cat="lapse" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'lapse')">
+                        ⚡ Descuido
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Personal Note & Actions Row -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:14px; flex-wrap:wrap; gap:12px;">
+                  <div style="flex:1; min-width:240px;">
+                    <input type="text" class="diag-note-input" data-qid="${q.id}" placeholder="Escribe una mnemotecnia o nota personal..." value="${escapeHtml(ann.notes || '')}" style="width:100%; height:36px; padding:6px 12px; font-size:0.82rem; border-radius:6px; background:var(--surface-raised); border:1px solid var(--border); color:var(--text-pure);">
+                  </div>
+                  <div>
+                    <button class="act-btn-pro" style="padding:6px 14px; font-size:0.8rem;" onclick="window.ISO_STUDIO.practiceSingleMistake('${q.id}')">
+                      🎯 Practicar en Modo Tutor
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+        }
+      }
+    }
+
     container.innerHTML = html;
+
+    // Attach Event Listeners
+    const btnDiag = document.getElementById('btn-toggle-view-diagnosis');
+    if (btnDiag) {
+      btnDiag.onclick = () => {
+        ERRORS_STATE.view = 'diagnosis';
+        AUDIO.playClick();
+        renderErrorsDiagnosis();
+      };
+    }
+
+    const btnMast = document.getElementById('btn-toggle-view-mastery');
+    if (btnMast) {
+      btnMast.onclick = () => {
+        ERRORS_STATE.view = 'mastery';
+        AUDIO.playClick();
+        renderErrorsDiagnosis();
+      };
+    }
+
+    const searchInp = document.getElementById('diag-search-input');
+    if (searchInp) {
+      searchInp.oninput = (e) => {
+        ERRORS_STATE.searchQuery = e.target.value;
+        renderErrorsDiagnosis();
+        const reSearch = document.getElementById('diag-search-input');
+        if (reSearch) {
+          reSearch.focus();
+          reSearch.setSelectionRange(reSearch.value.length, reSearch.value.length);
+        }
+      };
+    }
+
+    const topFilter = document.getElementById('diag-topic-filter');
+    if (topFilter) {
+      topFilter.onchange = (e) => {
+        ERRORS_STATE.topicFilter = e.target.value;
+        AUDIO.playClick();
+        renderErrorsDiagnosis();
+      };
+    }
+
+    const catFilter = document.getElementById('diag-category-filter');
+    if (catFilter) {
+      catFilter.onchange = (e) => {
+        ERRORS_STATE.categoryFilter = e.target.value;
+        AUDIO.playClick();
+        renderErrorsDiagnosis();
+      };
+    }
+
+    const recFilter = document.getElementById('diag-recurrence-filter');
+    if (recFilter) {
+      recFilter.onchange = (e) => {
+        ERRORS_STATE.recurrenceFilter = e.target.value;
+        AUDIO.playClick();
+        renderErrorsDiagnosis();
+      };
+    }
+
+    const btnStartFilt = document.getElementById('btn-start-filtered-mistakes');
+    if (btnStartFilt) {
+      btnStartFilt.onclick = startFilteredMistakesQuiz;
+    }
+
+    // Debounced Note Inputs
+    const noteInputs = container.querySelectorAll('.diag-note-input');
+    noteInputs.forEach(inp => {
+      let timeout = null;
+      inp.oninput = (e) => {
+        const qid = inp.getAttribute('data-qid');
+        const text = e.target.value;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          LEARNING_ENGINE.setAnnotation(qid, { notes: text });
+        }, 500);
+      };
+    });
   }
 
   // ── Curva de Evolución con Alto Contraste Adaptativo ───────────────
@@ -1550,36 +2386,31 @@
     ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].forEach(function (topKey) {
       const meta = APP.topicMeta[topKey] || { title: topKey, color: '#A8A8C0', officialExamShare: 0 };
       const st = topicStats[topKey];
-      const answered = st.total;
-      const net = st.net;
-      const netPct = answered > 0 ? Math.max(0, Math.round((net / answered) * 100)) : 0;
-      const isVulnerable = topKey === weakestTopic && APP.testHistory.length > 0;
+      const deep = LEARNING_ENGINE.getTopicDeepStats(topKey) || { coveragePct: 0, retentionScore: 0, masteryScore: 0, practiced: 0, total: 0 };
+      const isVulnerable = topKey === weakestTopic && (APP.testHistory.length > 0 || deep.masteryScore > 0);
 
       // Color coding progress bar
       let barColor = meta.color;
-      if (answered > 0) {
-        if (netPct < 40) barColor = 'var(--err)';
-        else if (netPct < 65) barColor = 'var(--warn)';
-        else barColor = 'var(--ok)';
-      }
+      if (deep.masteryScore >= 75) barColor = 'var(--ok)';
+      else if (deep.masteryScore >= 40) barColor = 'var(--warn)';
 
       gridHtml += `
         <div class="radar-topic-card ${isVulnerable ? 'is-vulnerable' : ''}" data-topic="${topKey}">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span class="topic-tag mono" style="background:rgba(255,255,255,0.08); color:${meta.color}; border:1px solid ${meta.color}40;">${topKey}</span>
-            <span class="mono" style="font-size:0.8rem; font-weight:800; color:${answered > 0 ? barColor : 'var(--text-dim)'};">
-              ${answered > 0 ? netPct + '% neto' : 'Sin datos'}
+            <span class="mono" style="font-size:0.78rem; font-weight:800; color:${deep.masteryScore > 0 ? barColor : 'var(--text-dim)'};">
+              ${deep.masteryScore > 0 ? deep.masteryScore + '% Maestría' : 'Sin datos'}
             </span>
           </div>
           <div style="font-size:0.92rem; font-weight:700; color:var(--text-pure); margin-top:2px;">
             ${meta.title}
           </div>
           <div class="progress-rail" style="margin-top:6px;">
-            <div class="progress-fill" style="width:${netPct}%; background:${barColor};"></div>
+            <div class="progress-fill" style="width:${deep.masteryScore}%; background:${barColor};"></div>
           </div>
           <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-dim); margin-top:6px;" class="mono">
-            <span>Aciertos: ${st.correct} | Fallos: ${st.wrong}</span>
-            <span>Neto: ${net >= 0 ? '+' : ''}${net}</span>
+            <span>Cob: ${deep.coveragePct}% (${deep.practiced}/${deep.total})</span>
+            <span>Retención: ${deep.retentionScore}%</span>
           </div>
           <div style="margin-top:10px; display:flex; justify-content:flex-end;">
             <button class="act-btn-pro" style="padding:4px 10px; font-size:0.76rem;" onclick="window.ISO_STUDIO.startTopicTest('${topKey}', 15)">
@@ -3362,6 +4193,32 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
             </div>
           </details>
 
+          <!-- Category Pills Selector in Doubt Stack -->
+          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+              <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase;">
+                Identificar Causa del Fallo:
+              </span>
+              <div class="category-pills-bar" style="margin:0;">
+                <button class="category-pill ${((APP.personalAnnotations[currentQ.id] || {}).errorCategory === 'concept') ? 'selected concept' : ''}" data-cat="concept" onclick="window.ISO_STUDIO.setMistakeCategory('${currentQ.id}', 'concept')">
+                  🧠 Teoría
+                </button>
+                <button class="category-pill ${((APP.personalAnnotations[currentQ.id] || {}).errorCategory === 'confusion') ? 'selected confusion' : ''}" data-cat="confusion" onclick="window.ISO_STUDIO.setMistakeCategory('${currentQ.id}', 'confusion')">
+                  🔄 Confusión
+                </button>
+                <button class="category-pill ${((APP.personalAnnotations[currentQ.id] || {}).errorCategory === 'reading') ? 'selected reading' : ''}" data-cat="reading" onclick="window.ISO_STUDIO.setMistakeCategory('${currentQ.id}', 'reading')">
+                  👁️ Lectura
+                </button>
+                <button class="category-pill ${((APP.personalAnnotations[currentQ.id] || {}).errorCategory === 'calculation') ? 'selected calculation' : ''}" data-cat="calculation" onclick="window.ISO_STUDIO.setMistakeCategory('${currentQ.id}', 'calculation')">
+                  🧮 Cálculo
+                </button>
+                <button class="category-pill ${((APP.personalAnnotations[currentQ.id] || {}).errorCategory === 'lapse') ? 'selected lapse' : ''}" data-cat="lapse" onclick="window.ISO_STUDIO.setMistakeCategory('${currentQ.id}', 'lapse')">
+                  ⚡ Descuido
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Question Resolution Action Prompt -->
           <div class="doubt-action-box">
             <div class="doubt-action-question">
@@ -3545,7 +4402,29 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
           <div style="background:var(--surface-raised); border-left:3px solid var(--ok); padding:10px 14px; border-radius:4px; font-size:0.88rem; color:var(--text-pure); margin-bottom:10px;">
             <strong>Respuesta Correcta:</strong> [${q.ans === 0 ? 'A' : 'B'}] ${escapeHtml(q.opts[q.ans])}
           </div>
-          ${q.ex ? `<div style="font-size:0.84rem; color:var(--text-muted); line-height:1.5;">${escapeHtml(q.ex)}</div>` : ''}
+          ${q.ex ? `<div style="font-size:0.84rem; color:var(--text-muted); line-height:1.5; margin-bottom:10px;">${escapeHtml(q.ex)}</div>` : ''}
+
+          <!-- Category Pills Selector -->
+          <div style="border-top:1px dashed var(--border); padding-top:8px; margin-top:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Causa:</span>
+            <div class="category-pills-bar" style="margin:0;">
+              <button class="category-pill ${((APP.personalAnnotations[q.id] || {}).errorCategory === 'concept') ? 'selected concept' : ''}" data-cat="concept" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'concept')">
+                🧠 Teoría
+              </button>
+              <button class="category-pill ${((APP.personalAnnotations[q.id] || {}).errorCategory === 'confusion') ? 'selected confusion' : ''}" data-cat="confusion" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'confusion')">
+                🔄 Confusión
+              </button>
+              <button class="category-pill ${((APP.personalAnnotations[q.id] || {}).errorCategory === 'reading') ? 'selected reading' : ''}" data-cat="reading" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'reading')">
+                👁️ Lectura
+              </button>
+              <button class="category-pill ${((APP.personalAnnotations[q.id] || {}).errorCategory === 'calculation') ? 'selected calculation' : ''}" data-cat="calculation" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'calculation')">
+                🧮 Cálculo
+              </button>
+              <button class="category-pill ${((APP.personalAnnotations[q.id] || {}).errorCategory === 'lapse') ? 'selected lapse' : ''}" data-cat="lapse" onclick="window.ISO_STUDIO.setMistakeCategory('${q.id}', 'lapse')">
+                ⚡ Descuido
+              </button>
+            </div>
+          </div>
         </div>
       `;
     });
@@ -4855,7 +5734,32 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     goToQuestion: goToQuestion,
     finishQuiz: finishQuiz,
     getActiveQuiz: function () { return APP.activeQuiz; },
-    getApp: function () { return APP; }
+    getApp: function () { return APP; },
+    setMistakeCategory: setMistakeCategory,
+    practiceSingleMistake: practiceSingleMistake,
+    setErrorsView: function (v) {
+      ERRORS_STATE.view = v;
+      AUDIO.playClick();
+      renderErrorsDiagnosis();
+    },
+    setErrorsTopicFilter: function (t) {
+      ERRORS_STATE.topicFilter = t;
+      ERRORS_STATE.view = 'diagnosis';
+      AUDIO.playClick();
+      renderErrorsDiagnosis();
+    },
+    setErrorsCategoryFilter: function (c) {
+      ERRORS_STATE.categoryFilter = (ERRORS_STATE.categoryFilter === c ? 'ALL' : c);
+      AUDIO.playClick();
+      renderErrorsDiagnosis();
+    },
+    toggleMistakeFavorite: function (questionId) {
+      const isFav = LEARNING_ENGINE.toggleFavorite(questionId);
+      showToast(isFav ? '★ Añadida a favoritos' : '☆ Eliminada de favoritos', 'info');
+      renderErrorsDiagnosis();
+      return isFav;
+    },
+    startFilteredMistakesTest: startFilteredMistakesQuiz
   };
 
   // Run on DOM Ready

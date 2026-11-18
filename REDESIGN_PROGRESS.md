@@ -1,6 +1,6 @@
 # ISO STUDIO 2.0 — REGISTRO DE REDISEÑO Y EVOLUCIÓN TÉCNICA
 
-> **Estado general:** FASE 5 COMPLETADA (Módulo B: Sesión Inteligente Adaptativa, Algoritmo Predictivo y Modo Tutor Guiado)  
+> **Estado general:** FASE 6 COMPLETADA (Módulos C y D: Mapa de Dominio T1-T6, Centro de Errores con Taxonomía Cognitiva y Diagnóstico Pedagógico Automatizado)  
 > **Fecha:** 18 de noviembre de 2026  
 > **Equipo:** Senior Frontend Engineer, SaaS UX/UI Designer, Learning Systems Engineer, Data Architect, QA Engineer.
 
@@ -131,9 +131,9 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
 - [x] **FASE 1 — SISTEMA VISUAL Y DESIGN TOKENS:** (Completada).
 - [x] **FASE 2 — NAVEGACIÓN Y DASHBOARD EN 4 ÁREAS:** (Completada). Reorganización en 4 áreas (INICIO, ESTUDIAR, REPASAR, ADMINISTRAR) con subpestañas, sistema de contraste WCAG AAA en ambos temas, Indicador de Preparación Oficial UMU, Sesión Inteligente y auditoría de bugs resuelta.
 - [x] **FASE 3 — INFRAESTRUCTURA DE DATOS Y APRENDIZAJE:** (Completada). Capa de persistencia versionada (`v2`), snapshot de seguridad automático (`iso_backup_vault`), tipografía unificada `Arial, Helvetica, sans-serif;`, log granular de intentos (1.000 entradas), motor de estados SM-2 adaptativo, anotaciones/favoritos desacoplados, y auditoría de integridad en panel Administrar y Auditor del Banco.
-- [ ] **FASE 4 — REPETICIÓN ESPACIADA (MÓDULO A):** Algoritmo de intervalos (Fallo: 10m; Acierto con duda: 1d; Acierto medio: 3d; Consolidado: 7d; Dominado: 14d), estados de pregunta e interfaz de repaso activo.
-- [ ] **FASE 5 — SESIÓN INTELIGENTE (MÓDULO B):** Motor de selección equilibrada (repasos vencidos, temas débiles, preguntas poco practicadas, nuevas) para 10, 20 o 30 preguntas.
-- [ ] **FASE 6 — MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES (MÓDULOS C Y D):** Cálculo de maestría por cobertura y consistencia. Categorización manual de fallos.
+- [x] **FASE 4 — REPETICIÓN ESPACIADA (MÓDULO A):** (Completada). Algoritmo de intervalos (Fallo: 10m; Acierto con duda: 1d; Acierto medio: 3d; Consolidado: 7d; Dominado: 14d), estados de pregunta e interfaz de repaso activo.
+- [x] **FASE 5 — SESIÓN INTELIGENTE (MÓDULO B):** (Completada). Motor de selección equilibrada (repasos vencidos, temas débiles, preguntas poco practicadas, nuevas) para 10, 20 o 30 preguntas con Modo Tutor guiado y cronometrado.
+- [x] **FASE 6 — MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES (MÓDULOS C Y D):** (Completada). Cálculo riguroso de maestría (40% cobertura + 60% retención SM-2), taxonomía cognitiva de 5 categorías de fallo, dictamen pedagógico automatizado y práctica de rescate focalizada.
 - [ ] **FASE 7 — MARCADORES, NOTAS Y FAVORITOS (MÓDULO E):** Anotaciones personales desacopladas de `questions.js`.
 - [ ] **FASE 8 — INDICADOR DE PREPARACIÓN OFICIAL (MÓDULO F):** Modelo transparente de diagnóstico de preparación para el examen oficial sin inventar probabilidades ficticias.
 - [ ] **FASE 9 — VALIDACIÓN Y CONTROL DE REGRESIÓN:** Suite de pruebas automatizadas sobre integridad de los 358 ítems, persistencia, fórmulas de nota y responsive design.
@@ -436,5 +436,59 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
 - Pruebas automatizadas de Fase 5: **35/35 pruebas superadas (100%)** (`test_phase5_full.js`).
 - Suite de regresión integral (Fases 1 a 5): **100% superada**.
 - Sintaxis JavaScript verificada con Node.js sin advertencias.
+
+---
+
+## 9. FASE 6 IMPLEMENTADA — MÓDULOS C Y D: MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES CON TAXONOMÍA COGNITIVA
+
+> **Fecha:** 18 de noviembre de 2026  
+> **Estado:** COMPLETADO AL 100% CON ÉXITO  
+
+### 9.1 Módulo C: Mapa de Dominio T1-T6 (Mastery Map)
+- **Cálculo Riguroso de Maestría Temática:**
+  - `Cobertura (% Coverage):` Ratio de preguntas exploradas y practicadas sobre el total del banco temático (`practiced / total * 100`).
+  - `Consistencia / Retención (% Retention):` Escalera de maduración SM-2 ponderada (Dominadas: 1.0, Consolidando: 0.7, Aprendizaje: 0.35).
+  - `Índice Compuesto de Maestría (0%–100%):` Modelo matemático `Maestría = Cobertura × 0.4 + Retención × 0.6`, penalizado por fallos activos no resueltos para forzar la remediación de errores antes de proclamar dominio.
+  - `Nivel de Maduración Cualitativo:`
+    - 🟢 `DOMINADO` (Maestría $\ge 75\%$).
+    - 🟡 `CONSOLIDANDO` ($40\% - 74\%$).
+    - 🔴 `EN DESARROLLO` ($1\% - 39\%$).
+    - ⚪ `SIN EXPLORAR` ($0\%$).
+- **Visualización Detallada de los 6 Temas Oficiales:**
+  - Tarjetas temáticas responsivas (`.mastery-topic-card`) en rejilla minmax de 320px.
+  - Insignia temática con color oficial y peso en el examen oficial (`T1: 16%`, `T2: 40%`, `T3: 12%`, `T4: 32%`, `T5/T6: Ampliación`).
+  - Barras de progreso dobles para Cobertura y Retención con contraste optimizado.
+  - Desglose cuantitativo por estado de aprendizaje: `Nuevas`, `En Aprendizaje`, `Afianzar / Consolidando`, `Dominadas`.
+  - Botón de acción directo `Entrenar 15Q` y `Ver Fallos del Tema`.
+  - Integración en el Dashboard (`#radar-topics-grid`): tarjetas de diagnóstico conectadas al motor `getTopicDeepStats()`.
+
+### 9.2 Módulo D: Centro de Errores y Taxonomía Cognitiva de Fallos
+- **Taxonomía Cognitiva de 5 Categorías:**
+  - 🧠 `concept` — **Desconocimiento Teórico:** No conocía la teoría, estructura de datos o llamada al sistema.
+  - 🔄 `confusion` — **Confusión Conceptual:** Duda entre dos conceptos o términos análogos/similares (p. ej. mutex vs semáforo binario, tuberías con nombre vs anónimas).
+  - 👁️ `reading` — **Error de Lectura / Trampa:** Lectura apresurada, negación inadvertida ("cuál NO es correcta") o caso límite.
+  - 🧮 `calculation` — **Cálculo / Traza:** Fallo aritmético en simulación paso a paso de algoritmos (Round Robin, TLB hit/miss, cómputo de inodos).
+  - ⚡ `lapse` — **Descuido / Lapsus:** Conocía la respuesta correcta pero marcó erróneamente por prisa o distracción.
+- **Selector Rápido de Categorías en 1 Clic (`.category-pill`):**
+  - Botones táctiles interactivos en cada tarjeta de fallo, en la Pila de Dudas (LIFO) y en el listado completo.
+  - Persistencia instantánea en `iso_personal_annotations` (`LEARNING_ENGINE.setErrorCategory`) sin recargas molestas de la interfaz.
+  - Actualización reactiva de contadores en vivo.
+- **Dictamen Pedagógico Automatizado:**
+  - Análisis contextual de la causa de fallo predominante y el tema más castigado, generando recomendaciones de estudio concretas y accionables para el temario de ISO.
+- **Buscador y Filtros Avanzados:**
+  - Filtrado instantáneo por Tema (T1-T6 o Todos), por Causa Cognitiva, por Reincidencia ($\ge 2$ fallos) y buscador en tiempo real por texto en enunciado o justificación.
+- **Práctica de Rescate Focalizada:**
+  - Botón `🎯 Practicar en Modo Tutor`: lanza un mini-examen inmediato de 1 pregunta en Modo Tutor con retroalimentación instantánea y bloqueo de opciones.
+  - Botón `Lanzar Test con Estos Fallos`: genera una sesión adaptativa con las preguntas filtradas.
+  - Botón `✓ Aclarada`: retira la pregunta de la pila de fallos y actualiza el contador.
+
+### 9.3 Verificación y Control de Calidad
+- Pruebas automatizadas de Fase 6: **40/40 pruebas superadas (100%)** (`test_phase6_full.js`).
+- Suite de regresión integral (Fases 3, 4, 5 y 6): **100% superadas con cero regresiones**.
+- Capturas visuales verificadas en modo oscuro y claro:
+  - `errors_view_dark.png`
+  - `dash_dark.png`
+  - `topics_dark.png`
+- Sintaxis JavaScript verificada con `node -c js/app.js` (0 errores).
 
 
