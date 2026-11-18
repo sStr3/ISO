@@ -1243,7 +1243,10 @@
           <div>
             <div style="font-size:1.15rem; font-weight:800; color:var(--text-pure); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
               <span>Indicador de Preparación</span>
-              <span class="readiness-badge mono" style="background:${statusBg}; color:${statusColor}; border-color:${statusBorder};">${statusText}</span>
+              <span class="readiness-badge mono" style="background:${statusBg}; color:${statusColor}; border-color:${statusBorder}; display:inline-flex; align-items:center; gap:8px;">
+                <span class="pulse-dot ${scorePct >= 65 ? '' : (scorePct >= 35 ? 'warn' : 'err')}"></span>
+                <span>${statusText}</span>
+              </span>
             </div>
             <p style="font-size:0.86rem; color:var(--text-muted); margin:4px 0 0 0;">
               Simulacros completados, tasa de aprobados, cobertura y resolución de dudas.
@@ -4284,6 +4287,22 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
         AUDIO.toggleMute();
       });
     }
+
+    // Dashboard KPI Navigation Cards
+    const kpiTests = document.getElementById('kpi-tests');
+    if (kpiTests) kpiTests.onclick = () => { AUDIO.playClick(); switchView('admin', 'admin-history'); };
+
+    const kpiPassRate = document.getElementById('kpi-passrate');
+    if (kpiPassRate) kpiPassRate.onclick = () => { AUDIO.playClick(); switchView('study', 'study-exams'); };
+
+    const kpiAvg = document.getElementById('kpi-avg');
+    if (kpiAvg) kpiAvg.onclick = () => { AUDIO.playClick(); switchView('study', 'study-official'); };
+
+    const kpiPending = document.getElementById('kpi-pending');
+    if (kpiPending) kpiPending.onclick = () => { AUDIO.playClick(); switchView('review', 'review-errors'); };
+
+    const kpiMastered = document.getElementById('kpi-mastered');
+    if (kpiMastered) kpiMastered.onclick = () => { AUDIO.playClick(); switchView('review', 'review-spaced'); };
 
     // Dashboard Quick Actions
     const dashSmartBtn = document.getElementById('dash-btn-smart-session');

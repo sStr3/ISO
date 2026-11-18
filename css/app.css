@@ -2901,6 +2901,225 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:foc
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   ANIMACIONES CONSTANTES (LIVE INDICATORS & BREATHING EFFECTS)
+   ═══════════════════════════════════════════════════════════════════ */
+.pulse-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
+  background-color: var(--ok) !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+}
+.pulse-dot::after {
+  content: '' !important;
+  position: absolute !important;
+  top: -2px !important;
+  left: -2px !important;
+  right: -2px !important;
+  bottom: -2px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid var(--ok) !important;
+  animation: pulseRing 1.8s infinite cubic-bezier(0.215, 0.61, 0.355, 1) !important;
+}
+.pulse-dot.accent {
+  background-color: var(--accent) !important;
+}
+.pulse-dot.accent::after {
+  border-color: var(--accent) !important;
+}
+.pulse-dot.warn {
+  background-color: var(--warn) !important;
+}
+.pulse-dot.warn::after {
+  border-color: var(--warn) !important;
+}
+.pulse-dot.err {
+  background-color: var(--err) !important;
+}
+.pulse-dot.err::after {
+  border-color: var(--err) !important;
+}
+@keyframes pulseRing {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(0.95); opacity: 0; }
+}
+
+/* Live Header Status Badge */
+.header-live-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  padding: 5px 12px !important;
+  border-radius: var(--radius-pill) !important;
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-pure) !important;
+  user-select: none !important;
+}
+[data-theme="light"] .header-live-badge {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INTERACTIVIDAD TÁCTIL Y AFFORDANCES DE CLIC (CLARAMENTE PULSABLES)
+   ═══════════════════════════════════════════════════════════════════ */
+/* Botones de acción universales */
+.act-btn-pro, .btn-primary-action, .subtab-btn, .theme-toggle-btn, .sound-toggle-btn {
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.act-btn-pro:active, .btn-primary-action:active, .theme-toggle-btn:active, .sound-toggle-btn:active {
+  transform: translateY(1px) scale(0.97) !important;
+}
+.subtab-btn:active {
+  transform: translateY(1px) scale(0.98) !important;
+}
+
+/* KPI Cards del Dashboard */
+.analytics-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 18px 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+[data-theme="light"] .analytics-card {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+.analytics-card:hover {
+  border-color: var(--border-light) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
+  background: var(--surface-raised) !important;
+}
+[data-theme="light"] .analytics-card:hover {
+  border-color: var(--accent) !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
+}
+.analytics-card:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+.analytics-card .analytics-arrow {
+  font-size: 0.85rem !important;
+  color: var(--text-dim) !important;
+  transition: all 0.18s ease !important;
+  display: inline-block !important;
+  margin-left: 4px !important;
+}
+.analytics-card:hover .analytics-arrow {
+  color: var(--accent) !important;
+  transform: translateX(3px) !important;
+}
+
+/* Option Tiles en el Quiz */
+.opt-tile {
+  cursor: pointer !important;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none !important;
+  position: relative !important;
+}
+.opt-tile:hover:not(.disabled) {
+  border-color: var(--border-light) !important;
+  transform: translateX(3px) !important;
+  background: var(--surface-raised) !important;
+}
+[data-theme="light"] .opt-tile:hover:not(.disabled) {
+  border-color: var(--accent) !important;
+  background: #F8FAFC !important;
+}
+.opt-tile:active:not(.disabled) {
+  transform: translateX(1px) scale(0.99) !important;
+}
+.opt-tile.selected {
+  border-color: var(--accent) !important;
+  background: var(--accent-subtle) !important;
+  box-shadow: 0 0 0 1px var(--accent) !important;
+  animation: optSpring 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+@keyframes optSpring {
+  0% { transform: scale(0.99); }
+  50% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+/* Radar Topic Cards */
+.radar-topic-card {
+  cursor: pointer !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.radar-topic-card:hover {
+  border-color: var(--border-light) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
+}
+.radar-topic-card:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* 50-Pills Navigator en el Quiz */
+.nav-pill-btn {
+  cursor: pointer !important;
+  transition: all 0.14s ease !important;
+}
+.nav-pill-btn:hover {
+  transform: translateY(-2px) scale(1.1) !important;
+  border-color: var(--border-light) !important;
+}
+.nav-pill-btn:active {
+  transform: translateY(0) scale(0.95) !important;
+}
+
+/* Sidebar Links con barra de acento activa */
+.nav-link {
+  cursor: pointer !important;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+}
+.nav-link:hover {
+  transform: translateX(3px) !important;
+  background: var(--surface-raised) !important;
+}
+.nav-link:active {
+  transform: translateX(1px) scale(0.98) !important;
+}
+.nav-link.active::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 15% !important;
+  bottom: 15% !important;
+  width: 3px !important;
+  background: var(--accent) !important;
+  border-radius: 0 2px 2px 0 !important;
+}
+
+/* Timer activo con respiración rítmica */
+.timer-badge.active-ticking {
+  animation: timerTick 1.5s infinite ease-in-out !important;
+}
+@keyframes timerTick {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    ACCESIBILIDAD Y REDUCED MOTION
    ═══════════════════════════════════════════════════════════════════ */
 
