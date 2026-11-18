@@ -371,8 +371,18 @@
     renderAnalyticsDashboard();
     renderSmartSessionConfig();
 
-    // Default view
-    switchView('dashboard');
+    // Default view or hash view
+    try {
+      const hash = (typeof window !== 'undefined' && window.location && window.location.hash) ? window.location.hash.replace('#', '') : '';
+      if (hash) {
+        const parts = hash.split('/');
+        switchView(parts[0], parts[1]);
+      } else {
+        switchView('dashboard');
+      }
+    } catch (e) {
+      switchView('dashboard');
+    }
   }
 
   function loadQuestions() {
@@ -1073,6 +1083,15 @@
       renderBankView();
     }
 
+    try {
+      if (typeof window !== 'undefined' && window.location && viewKey !== 'quiz' && viewKey !== 'results') {
+        const hashTarget = subtabKey ? `${viewKey}/${subtabKey}` : viewKey;
+        if (window.location.hash !== '#' + hashTarget) {
+          window.location.hash = hashTarget;
+        }
+      }
+    } catch (e) {}
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1708,14 +1727,20 @@
   };
 
   function getWeakestTopic(eligibleTopics = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']) {
+    const list = Array.isArray(eligibleTopics) && eligibleTopics.length > 0 
+      ? eligibleTopics 
+      : ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
     const topicStats = {};
-    eligibleTopics.forEach(t => {
+    list.forEach(t => {
       topicStats[t] = { correct: 0, total: 0 };
     });
 
-    if (APP.answerAttempts && APP.answerAttempts.length > 0) {
-      APP.answerAttempts.forEach(att => {
-        const q = APP.questions.find(x => x.id === att.questionId);
+    const attempts = Array.isArray(APP.answerAttempts) ? APP.answerAttempts : [];
+    const questions = Array.isArray(APP.questions) ? APP.questions : [];
+    if (attempts.length > 0) {
+      attempts.forEach(att => {
+        if (!att) return;
+        const q = questions.find(x => x && x.id === att.questionId);
         if (q && topicStats[q.t]) {
           topicStats[q.t].total++;
           if (att.isCorrect) topicStats[q.t].correct++;
@@ -1723,12 +1748,12 @@
       });
     }
 
-    let weakest = eligibleTopics[0] || 'T2';
+    let weakest = list[0] || 'T2';
     let lowestRate = Infinity;
     let hasData = false;
 
-    eligibleTopics.forEach(t => {
-      if (topicStats[t].total > 0) {
+    list.forEach(t => {
+      if (topicStats[t] && topicStats[t].total > 0) {
         hasData = true;
         const rate = topicStats[t].correct / topicStats[t].total;
         if (rate < lowestRate) {
@@ -1739,58 +1764,89 @@
     });
 
     if (!hasData) {
-      // Default to T2 (40% weight in official exam)
-      return eligibleTopics.includes('T2') ? 'T2' : (eligibleTopics[0] || 'T2');
+      return list.includes('T2') ? 'T2' : (list[0] || 'T2');
     }
     return weakest;
   }
 
-  function getSmartSessionTelemetry(count, selectedTopics) {
-    const activeTopics = selectedTopics || SMART_CONFIG.selectedTopics;
-    const eligible = APP.questions.filter(q => activeTopics.has(q.t));
-    const now = new Date();
+  function getSmartSessionTelemetry(count = 20, selectedTopics = null) {
+    try {
+      const rawTopics = selectedTopics || (SMART_CONFIG && SMART_CONFIG.selectedTopics);
+      const activeTopics = (rawTopics instanceof Set)
+        ? rawTopics
+        : new Set(Array.isArray(rawTopics) ? rawTopics : ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
 
-    const dueList = eligible.filter(q => {
-      if (APP.mistakesBank[q.id]) return true;
-      const st = APP.learningState[q.id];
-      return st && st.nextReviewDate && new Date(st.nextReviewDate) <= now;
-    });
+      const questions = Array.isArray(APP.questions) ? APP.questions : [];
+      const mistakes = (APP.mistakesBank && typeof APP.mistakesBank === 'object') ? APP.mistakesBank : {};
+      const learning = (APP.learningState && typeof APP.learningState === 'object') ? APP.learningState : {};
 
-    const activeMistakes = eligible.filter(q => Boolean(APP.mistakesBank[q.id]));
-    const weakestTopic = getWeakestTopic(Array.from(activeTopics));
-    const unpracticed = eligible.filter(q => {
-      const st = APP.learningState[q.id];
-      return !st || st.totalAttempts === 0;
-    });
+      const eligible = questions.filter(q => q && activeTopics.has(q.t));
+      const now = new Date();
 
-    const targetDue = Math.min(Math.ceil(count * 0.35), dueList.length);
-    const targetWeak = Math.min(Math.ceil(count * 0.30), eligible.filter(q => q.t === weakestTopic).length);
-    const targetNew = Math.min(Math.max(0, count - targetDue - targetWeak), unpracticed.length);
+      const dueList = eligible.filter(q => {
+        if (mistakes[q.id]) return true;
+        const st = learning[q.id];
+        return st && st.nextReviewDate && new Date(st.nextReviewDate) <= now;
+      });
 
-    return {
-      totalEligible: eligible.length,
-      dueCount: dueList.length,
-      mistakesCount: activeMistakes.length,
-      weakestTopic: weakestTopic,
-      unpracticedCount: unpracticed.length,
-      estimatedMinutes: Math.max(2, Math.round(count * 0.9)),
-      previewDue: targetDue,
-      previewWeak: targetWeak,
-      previewNew: targetNew
-    };
+      const activeMistakes = eligible.filter(q => Boolean(mistakes[q.id]));
+      const weakestTopic = getWeakestTopic(Array.from(activeTopics));
+      const unpracticed = eligible.filter(q => {
+        const st = learning[q.id];
+        return !st || st.totalAttempts === 0;
+      });
+
+      const safeCount = Number.isInteger(count) && count > 0 ? count : 20;
+      const targetDue = Math.min(Math.ceil(safeCount * 0.35), dueList.length);
+      const targetWeak = Math.min(Math.ceil(safeCount * 0.30), eligible.filter(q => q.t === weakestTopic).length);
+      const targetNew = Math.min(Math.max(0, safeCount - targetDue - targetWeak), unpracticed.length);
+
+      return {
+        totalEligible: eligible.length,
+        dueCount: dueList.length,
+        mistakesCount: activeMistakes.length,
+        weakestTopic: weakestTopic || 'T2',
+        unpracticedCount: unpracticed.length,
+        estimatedMinutes: Math.max(2, Math.round(safeCount * 0.9)),
+        previewDue: targetDue,
+        previewWeak: targetWeak,
+        previewNew: targetNew
+      };
+    } catch (err) {
+      console.warn('Fallback in getSmartSessionTelemetry:', err);
+      const fallbackCount = Number.isInteger(count) && count > 0 ? count : 20;
+      return {
+        totalEligible: 358,
+        dueCount: 0,
+        mistakesCount: 0,
+        weakestTopic: 'T2',
+        unpracticedCount: 358,
+        estimatedMinutes: Math.max(2, Math.round(fallbackCount * 0.9)),
+        previewDue: Math.ceil(fallbackCount * 0.35),
+        previewWeak: Math.ceil(fallbackCount * 0.30),
+        previewNew: Math.ceil(fallbackCount * 0.35)
+      };
+    }
   }
 
   function generateSmartSessionQuestions({ count = 20, selectedTopics = null }) {
-    if (APP.questions.length === 0) return [];
+    const questions = Array.isArray(APP.questions) ? APP.questions : [];
+    if (questions.length === 0) return [];
 
-    const activeTopics = selectedTopics || SMART_CONFIG.selectedTopics;
-    const eligible = APP.questions.filter(q => activeTopics.has(q.t));
+    const rawTopics = selectedTopics || (SMART_CONFIG && SMART_CONFIG.selectedTopics);
+    const activeTopics = (rawTopics instanceof Set)
+      ? rawTopics
+      : new Set(Array.isArray(rawTopics) ? rawTopics : ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
+
+    const eligible = questions.filter(q => q && activeTopics.has(q.t));
     if (eligible.length === 0) return [];
 
     const targetCount = Math.min(count, eligible.length);
     const selected = [];
     const usedIds = new Set();
     const now = new Date();
+    const mistakes = (APP.mistakesBank && typeof APP.mistakesBank === 'object') ? APP.mistakesBank : {};
+    const learning = (APP.learningState && typeof APP.learningState === 'object') ? APP.learningState : {};
 
     function addBatch(candidates, maxToAdd) {
       const shuffled = [...candidates];
@@ -1809,13 +1865,13 @@
 
     // 1. Repasos vencidos según curva de olvido SM-2 (hasta 35%)
     const dueCandidates = eligible.filter(q => {
-      const st = APP.learningState[q.id];
+      const st = learning[q.id];
       return st && st.nextReviewDate && new Date(st.nextReviewDate) <= now;
     });
     addBatch(dueCandidates, Math.ceil(targetCount * 0.35));
 
     // 2. Errores acumulados en la pila (hasta 25%, aplicando regla anti-fatiga)
-    const mistakeCandidates = eligible.filter(q => Boolean(APP.mistakesBank[q.id]) && !usedIds.has(q.id));
+    const mistakeCandidates = eligible.filter(q => Boolean(mistakes[q.id]) && !usedIds.has(q.id));
     addBatch(mistakeCandidates, Math.ceil(targetCount * 0.25));
 
     // 3. Tema más débil según analítica histórica (hasta 30%)
@@ -1872,36 +1928,45 @@
   }
 
   function renderSmartSessionConfig() {
-    const container = document.getElementById('smart-session-config-container');
-    if (!container) return;
+    try {
+      const container = document.getElementById('smart-session-config-container');
+      if (!container) return;
 
-    const telemetry = getSmartSessionTelemetry(SMART_CONFIG.count, SMART_CONFIG.selectedTopics);
-    const estMinutes = Math.max(2, Math.round(SMART_CONFIG.count * (SMART_CONFIG.mode === 'tutor' ? 1.0 : 0.8)));
+      if (!SMART_CONFIG.selectedTopics || !(SMART_CONFIG.selectedTopics instanceof Set)) {
+        SMART_CONFIG.selectedTopics = new Set(['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
+      }
+      if (!SMART_CONFIG.count) SMART_CONFIG.count = 20;
+      if (!SMART_CONFIG.mode) SMART_CONFIG.mode = 'tutor';
+      if (!SMART_CONFIG.preset) SMART_CONFIG.preset = '20';
+      if (!SMART_CONFIG.topicMode) SMART_CONFIG.topicMode = 'all';
 
-    const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
-    const topicLabels = {
-      T1: 'T1: Intro SSOO (46Q)',
-      T2: 'T2: Procesos (131Q · 40%)',
-      T3: 'T3: Memoria (35Q)',
-      T4: 'T4: E/S y Ficheros (103Q · 32%)',
-      T5: 'T5: Seguridad (25Q)',
-      T6: 'T6: Distribuidos (18Q)'
-    };
+      const telemetry = getSmartSessionTelemetry(SMART_CONFIG.count, SMART_CONFIG.selectedTopics);
+      const estMinutes = Math.max(2, Math.round(SMART_CONFIG.count * (SMART_CONFIG.mode === 'tutor' ? 1.0 : 0.8)));
 
-    let topicsHtml = `
-      <button class="smart-topic-chip ${SMART_CONFIG.topicMode === 'all' ? 'active' : ''}" id="chip-topic-all">
-        ★ Todos los Temas (Automático)
-      </button>
-    `;
+      const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+      const topicLabels = {
+        T1: 'T1: Intro SSOO (46Q)',
+        T2: 'T2: Procesos (131Q · 40%)',
+        T3: 'T3: Memoria (35Q)',
+        T4: 'T4: E/S y Ficheros (103Q · 32%)',
+        T5: 'T5: Seguridad (25Q)',
+        T6: 'T6: Distribuidos (18Q)'
+      };
 
-    topicKeys.forEach(tKey => {
-      const isSelected = SMART_CONFIG.topicMode === 'custom' && SMART_CONFIG.selectedTopics.has(tKey);
-      topicsHtml += `
-        <button class="smart-topic-chip ${isSelected ? 'active' : ''}" data-topic="${tKey}">
-          ${topicLabels[tKey] || tKey}
+      let topicsHtml = `
+        <button type="button" class="smart-topic-chip ${SMART_CONFIG.topicMode === 'all' ? 'active' : ''}" id="chip-topic-all">
+          ★ Todos los Temas (Automático)
         </button>
       `;
-    });
+
+      topicKeys.forEach(tKey => {
+        const isSelected = SMART_CONFIG.topicMode === 'custom' && SMART_CONFIG.selectedTopics.has(tKey);
+        topicsHtml += `
+          <button type="button" class="smart-topic-chip ${isSelected ? 'active' : ''}" data-topic="${tKey}">
+            ${topicLabels[tKey] || tKey}
+          </button>
+        `;
+      });
 
     container.innerHTML = `
       <div class="smart-config-wrap">
@@ -2105,7 +2170,10 @@
         startSmartSession();
       };
     }
+  } catch (err) {
+    console.error('Error in renderSmartSessionConfig:', err);
   }
+}
 
   function startTopicQuiz(topicKey, count) {
     const matching = APP.questions.filter(q => q.t === topicKey);
@@ -4239,6 +4307,15 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
     const btnSmart30 = document.getElementById('btn-smart-30');
     if (btnSmart30) btnSmart30.onclick = () => { AUDIO.playClick(); startSmartSession(30); };
+
+    // Smart session configurator launch button fallback
+    const launchSmartBtn = document.getElementById('btn-launch-smart-active');
+    if (launchSmartBtn) {
+      launchSmartBtn.onclick = () => {
+        AUDIO.playClick();
+        startSmartSession();
+      };
+    }
 
     // Primary header button
     const btnHdrSimulacro = document.getElementById('hdr-btn-start-mock');
