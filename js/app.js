@@ -323,6 +323,10 @@
     let saved = 'dark';
     try {
       saved = localStorage.getItem('iso_theme') || 'dark';
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('theme')) {
+        saved = urlParams.get('theme');
+      }
     } catch (e) {}
     applyTheme(saved);
 
