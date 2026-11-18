@@ -367,7 +367,11 @@
 
           <!-- Subtabs de Navegación del Área Estudiar -->
           <div class="subtabs-bar">
-            <button class="subtab-btn active" data-parent="study" data-subtab="study-official">
+            <button class="subtab-btn active" data-parent="study" data-subtab="study-smart">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/></svg>
+              Sesión Inteligente
+            </button>
+            <button class="subtab-btn" data-parent="study" data-subtab="study-official">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               Simulacro Oficial (50Q)
             </button>
@@ -379,14 +383,17 @@
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
               Entrenamiento Temático (T1-T6)
             </button>
-            <button class="subtab-btn" data-parent="study" data-subtab="study-smart">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/></svg>
-              Sesión Inteligente
-            </button>
           </div>
 
-          <!-- Subtab 1: Simulacro Oficial -->
-          <div class="subtab-panel active" id="subtab-study-official">
+          <!-- Subtab 1: Sesión Inteligente Adaptativa (Prioridad - Figma Pantalla 14) -->
+          <div class="subtab-panel active" id="subtab-study-smart">
+            <div id="smart-session-config-container">
+              <!-- Dynamically populated by JS renderSmartSessionConfig() -->
+            </div>
+          </div>
+
+          <!-- Subtab 2: Simulacro Oficial -->
+          <div class="subtab-panel" id="subtab-study-official">
             <div style="max-width:860px; margin:0 auto;">
               <div class="radar-card-pro" style="padding:28px 32px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
@@ -663,13 +670,6 @@
                   <button class="act-btn-pro primary" style="flex:1; justify-content:center;" onclick="window.ISO_STUDIO.startTopicTest('T6', 15)">Test Completo (15Q)</button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Subtab 4: Sesión Inteligente Adaptativa (Fase 5 - Módulo B) -->
-          <div class="subtab-panel" id="subtab-study-smart">
-            <div id="smart-session-config-container">
-              <!-- Dynamically populated by JS renderSmartSessionConfig() -->
             </div>
           </div>
         </section>

@@ -369,6 +369,7 @@
     setupActions();
     updateGlobalHeaderStats();
     renderAnalyticsDashboard();
+    renderSmartSessionConfig();
 
     // Default view
     switchView('dashboard');
@@ -1056,7 +1057,7 @@
     if (subtabKey) {
       switchSubtab(viewKey, subtabKey);
     } else {
-      if (viewKey === 'study') switchSubtab('study', 'study-official');
+      if (viewKey === 'study') switchSubtab('study', 'study-smart');
       else if (viewKey === 'review') switchSubtab('review', 'review-spaced');
       else if (viewKey === 'admin') switchSubtab('admin', 'admin-bank');
     }
@@ -1065,7 +1066,7 @@
     if (viewKey === 'dashboard') {
       renderAnalyticsDashboard();
     } else if (viewKey === 'study') {
-      if (subtabKey === 'study-smart') renderSmartSessionConfig();
+      renderSmartSessionConfig();
     } else if (viewKey === 'review') {
       renderSpacedRepetitionView();
     } else if (viewKey === 'admin') {
@@ -2167,6 +2168,8 @@
       startTime: Date.now()
     };
 
+    switchView('quiz');
+
     renderQuizHUD();
     renderQuizNavigator();
     renderCurrentQuestion();
@@ -2187,7 +2190,6 @@
       }
     }
 
-    switchView('quiz');
     showToast(`Comenzando: ${config.name}`, 'info');
   }
 
@@ -4216,7 +4218,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     if (dashSmartBtn) {
       dashSmartBtn.addEventListener('click', () => {
         AUDIO.playClick();
-        startSmartSession(20);
+        switchView('study', 'study-smart');
       });
     }
 
