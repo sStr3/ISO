@@ -666,47 +666,10 @@
             </div>
           </div>
 
-          <!-- Subtab 4: Sesión Inteligente Adaptativa -->
+          <!-- Subtab 4: Sesión Inteligente Adaptativa (Fase 5 - Módulo B) -->
           <div class="subtab-panel" id="subtab-study-smart">
-            <div style="max-width:860px; margin:0 auto;">
-              <div class="readiness-card" style="padding:28px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-                  <div>
-                    <h3 style="font-size:1.25rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
-                      Generador de Sesiones Adaptativas
-                    </h3>
-                    <p style="font-size:0.88rem; color:var(--text-muted); margin:0;">
-                      Prioriza automáticamente fallos acumulados, tu tema más débil y preguntas pendientes.
-                    </p>
-                  </div>
-                  <span class="mono" style="font-size:0.78rem; font-weight:700; color:var(--accent); background:var(--accent-subtle); border:1px solid var(--accent-border); padding:4px 12px; border-radius:var(--radius-pill);">
-                    Algoritmo Dinámico
-                  </span>
-                </div>
-
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin:24px 0;">
-                  <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center;">
-                    <div class="mono" style="font-size:0.8rem; color:var(--text-dim); margin-bottom:6px;">SESIÓN RÁPIDA</div>
-                    <div style="font-size:1.5rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">10 Preguntas</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Ideal para pausas cortas (~8 min)</div>
-                    <button class="act-btn-pro" id="btn-smart-10" style="width:100%; justify-content:center;">Iniciar 10Q</button>
-                  </div>
-
-                  <div style="background:var(--surface-raised); border:2px solid var(--accent); border-radius:var(--radius); padding:20px; text-align:center;">
-                    <div class="mono" style="font-size:0.8rem; color:var(--accent); font-weight:700; margin-bottom:6px;">RECOMENDADA</div>
-                    <div style="font-size:1.5rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">20 Preguntas</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Consolidación equilibrada (~18 min)</div>
-                    <button class="act-btn-pro primary" id="btn-smart-20" style="width:100%; justify-content:center;">Iniciar 20Q</button>
-                  </div>
-
-                  <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center;">
-                    <div class="mono" style="font-size:0.8rem; color:var(--text-dim); margin-bottom:6px;">SESIÓN INTENSIVA</div>
-                    <div style="font-size:1.5rem; font-weight:800; color:var(--text-pure); margin-bottom:6px;">30 Preguntas</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">Refuerzo exhaustivo (~28 min)</div>
-                    <button class="act-btn-pro" id="btn-smart-30" style="width:100%; justify-content:center;">Iniciar 30Q</button>
-                  </div>
-                </div>
-              </div>
+            <div id="smart-session-config-container">
+              <!-- Dynamically populated by JS renderSmartSessionConfig() -->
             </div>
           </div>
         </section>

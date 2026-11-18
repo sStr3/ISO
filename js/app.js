@@ -974,7 +974,9 @@
     }
 
     // Subtab specific render hooks
-    if (parentKey === 'review') {
+    if (parentKey === 'study') {
+      if (subtabKey === 'study-smart') renderSmartSessionConfig();
+    } else if (parentKey === 'review') {
       if (subtabKey === 'review-spaced') renderSpacedRepetitionView();
       if (subtabKey === 'review-stack') renderMistakesView();
       if (subtabKey === 'review-errors') renderErrorsDiagnosis();
@@ -1062,6 +1064,8 @@
     // View-specific render hooks
     if (viewKey === 'dashboard') {
       renderAnalyticsDashboard();
+    } else if (viewKey === 'study') {
+      if (subtabKey === 'study-smart') renderSmartSessionConfig();
     } else if (viewKey === 'review') {
       renderSpacedRepetitionView();
     } else if (viewKey === 'admin') {
@@ -1690,80 +1694,416 @@
     });
   }
 
-  // ── Sesión Inteligente Adaptativa ──────────────────────────────────
-  function startSmartSession(count = 20) {
+  // ═══════════════════════════════════════════════════════════════════
+  // FASE 5 — MÓDULO B: SESIÓN INTELIGENTE ADAPTATIVA (FIGMA PANTALLA 14)
+  // ═══════════════════════════════════════════════════════════════════
+
+  const SMART_CONFIG = {
+    count: 20,
+    preset: '20', // '10' | '20' | '30' | 'custom'
+    mode: 'tutor', // 'tutor' (guía inmediata) | 'exam' (simulación con cronómetro)
+    topicMode: 'all', // 'all' | 'custom'
+    selectedTopics: new Set(['T1', 'T2', 'T3', 'T4', 'T5', 'T6'])
+  };
+
+  function getWeakestTopic(eligibleTopics = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']) {
+    const topicStats = {};
+    eligibleTopics.forEach(t => {
+      topicStats[t] = { correct: 0, total: 0 };
+    });
+
+    if (APP.answerAttempts && APP.answerAttempts.length > 0) {
+      APP.answerAttempts.forEach(att => {
+        const q = APP.questions.find(x => x.id === att.questionId);
+        if (q && topicStats[q.t]) {
+          topicStats[q.t].total++;
+          if (att.isCorrect) topicStats[q.t].correct++;
+        }
+      });
+    }
+
+    let weakest = eligibleTopics[0] || 'T2';
+    let lowestRate = Infinity;
+    let hasData = false;
+
+    eligibleTopics.forEach(t => {
+      if (topicStats[t].total > 0) {
+        hasData = true;
+        const rate = topicStats[t].correct / topicStats[t].total;
+        if (rate < lowestRate) {
+          lowestRate = rate;
+          weakest = t;
+        }
+      }
+    });
+
+    if (!hasData) {
+      // Default to T2 (40% weight in official exam)
+      return eligibleTopics.includes('T2') ? 'T2' : (eligibleTopics[0] || 'T2');
+    }
+    return weakest;
+  }
+
+  function getSmartSessionTelemetry(count, selectedTopics) {
+    const activeTopics = selectedTopics || SMART_CONFIG.selectedTopics;
+    const eligible = APP.questions.filter(q => activeTopics.has(q.t));
+    const now = new Date();
+
+    const dueList = eligible.filter(q => {
+      if (APP.mistakesBank[q.id]) return true;
+      const st = APP.learningState[q.id];
+      return st && st.nextReviewDate && new Date(st.nextReviewDate) <= now;
+    });
+
+    const activeMistakes = eligible.filter(q => Boolean(APP.mistakesBank[q.id]));
+    const weakestTopic = getWeakestTopic(Array.from(activeTopics));
+    const unpracticed = eligible.filter(q => {
+      const st = APP.learningState[q.id];
+      return !st || st.totalAttempts === 0;
+    });
+
+    const targetDue = Math.min(Math.ceil(count * 0.35), dueList.length);
+    const targetWeak = Math.min(Math.ceil(count * 0.30), eligible.filter(q => q.t === weakestTopic).length);
+    const targetNew = Math.min(Math.max(0, count - targetDue - targetWeak), unpracticed.length);
+
+    return {
+      totalEligible: eligible.length,
+      dueCount: dueList.length,
+      mistakesCount: activeMistakes.length,
+      weakestTopic: weakestTopic,
+      unpracticedCount: unpracticed.length,
+      estimatedMinutes: Math.max(2, Math.round(count * 0.9)),
+      previewDue: targetDue,
+      previewWeak: targetWeak,
+      previewNew: targetNew
+    };
+  }
+
+  function generateSmartSessionQuestions({ count = 20, selectedTopics = null }) {
+    if (APP.questions.length === 0) return [];
+
+    const activeTopics = selectedTopics || SMART_CONFIG.selectedTopics;
+    const eligible = APP.questions.filter(q => activeTopics.has(q.t));
+    if (eligible.length === 0) return [];
+
+    const targetCount = Math.min(count, eligible.length);
+    const selected = [];
+    const usedIds = new Set();
+    const now = new Date();
+
+    function addBatch(candidates, maxToAdd) {
+      const shuffled = [...candidates];
+      shuffleArray(shuffled);
+      let added = 0;
+      for (let i = 0; i < shuffled.length; i++) {
+        if (added >= maxToAdd || selected.length >= targetCount) break;
+        const q = shuffled[i];
+        if (!usedIds.has(q.id)) {
+          selected.push(q);
+          usedIds.add(q.id);
+          added++;
+        }
+      }
+    }
+
+    // 1. Repasos vencidos según curva de olvido SM-2 (hasta 35%)
+    const dueCandidates = eligible.filter(q => {
+      const st = APP.learningState[q.id];
+      return st && st.nextReviewDate && new Date(st.nextReviewDate) <= now;
+    });
+    addBatch(dueCandidates, Math.ceil(targetCount * 0.35));
+
+    // 2. Errores acumulados en la pila (hasta 25%, aplicando regla anti-fatiga)
+    const mistakeCandidates = eligible.filter(q => Boolean(APP.mistakesBank[q.id]) && !usedIds.has(q.id));
+    addBatch(mistakeCandidates, Math.ceil(targetCount * 0.25));
+
+    // 3. Tema más débil según analítica histórica (hasta 30%)
+    const weakestTopic = getWeakestTopic(Array.from(activeTopics));
+    const weakCandidates = eligible.filter(q => q.t === weakestTopic && !usedIds.has(q.id));
+    addBatch(weakCandidates, Math.ceil(targetCount * 0.30));
+
+    // 4. Preguntas nuevas o poco practicadas para expandir cobertura (hasta 30%)
+    const newCandidates = eligible.filter(q => {
+      const st = APP.learningState[q.id];
+      return (!st || st.totalAttempts === 0) && !usedIds.has(q.id);
+    });
+    addBatch(newCandidates, Math.ceil(targetCount * 0.30));
+
+    // 5. Consolidación y mantenimiento (repaso equilibrado)
+    const consolidatingCandidates = eligible.filter(q => !usedIds.has(q.id));
+    addBatch(consolidatingCandidates, targetCount - selected.length);
+
+    // 6. Relleno final si fuera necesario
+    if (selected.length < targetCount) {
+      addBatch(eligible.filter(q => !usedIds.has(q.id)), targetCount - selected.length);
+    }
+
+    shuffleArray(selected);
+    return selected;
+  }
+
+  function startSmartSession(customCount = null, customOptions = {}) {
     if (APP.questions.length === 0) {
       showToast('No hay preguntas en el banco de datos.', 'error');
       return;
     }
 
-    const targetCount = Math.min(count, APP.questions.length);
-    const selected = [];
-    const usedIds = new Set();
+    const count = customCount || customOptions.count || SMART_CONFIG.count || 20;
+    const mode = customOptions.mode || SMART_CONFIG.mode || 'tutor';
+    const topics = customOptions.selectedTopics || SMART_CONFIG.selectedTopics;
 
-    // 1. Priorizar preguntas de la pila de fallos (hasta un 40% de la sesión)
-    const mistakeIds = Object.keys(APP.mistakesBank);
-    if (mistakeIds.length > 0) {
-      const mistakeQuestions = APP.questions.filter(q => mistakeIds.includes(q.id));
-      shuffleArray(mistakeQuestions);
-      const mistakeTarget = Math.min(Math.ceil(targetCount * 0.4), mistakeQuestions.length);
-      for (let i = 0; i < mistakeTarget; i++) {
-        selected.push(mistakeQuestions[i]);
-        usedIds.add(mistakeQuestions[i].id);
-      }
+    const questions = generateSmartSessionQuestions({ count, selectedTopics: topics });
+    if (questions.length === 0) {
+      showToast('No se encontraron preguntas para los temas seleccionados.', 'error');
+      return;
     }
 
-    // 2. Identificar el tema más débil según el histórico acumulado
-    let weakestTopic = 'T2';
-    if (APP.testHistory.length > 0) {
-      const topicNet = { T1: 0, T2: 0, T3: 0, T4: 0 };
-      APP.testHistory.forEach(t => {
-        if (t.questions && t.userAnswers) {
-          t.questions.forEach((q, idx) => {
-            const u = t.userAnswers[idx];
-            if (u !== undefined && topicNet[q.t] !== undefined) {
-              topicNet[q.t] += (u === q.ans ? 1 : -1);
-            }
-          });
-        }
-      });
-      let minNet = Infinity;
-      Object.keys(topicNet).forEach(k => {
-        if (topicNet[k] < minNet) {
-          minNet = topicNet[k];
-          weakestTopic = k;
-        }
-      });
-    }
-
-    // Priorizar preguntas del tema más débil (hasta un 40% de la sesión)
-    const weakQuestions = APP.questions.filter(q => q.t === weakestTopic && !usedIds.has(q.id));
-    shuffleArray(weakQuestions);
-    const weakTarget = Math.min(Math.ceil(targetCount * 0.4), weakQuestions.length);
-    for (let i = 0; i < weakTarget; i++) {
-      if (selected.length < targetCount) {
-        selected.push(weakQuestions[i]);
-        usedIds.add(weakQuestions[i].id);
-      }
-    }
-
-    // 3. Completar con preguntas no repetidas del resto del temario
-    const remainingQuestions = APP.questions.filter(q => !usedIds.has(q.id));
-    shuffleArray(remainingQuestions);
-    for (let i = 0; i < remainingQuestions.length; i++) {
-      if (selected.length >= targetCount) break;
-      selected.push(remainingQuestions[i]);
-      usedIds.add(remainingQuestions[i].id);
-    }
-
-    shuffleArray(selected);
+    const isTutorMode = mode === 'tutor';
+    const timeLimitSec = isTutorMode ? 0 : Math.round(questions.length * 72);
 
     setupQuizSession({
-      name: `Sesión Inteligente Adaptativa (${selected.length}Q)`,
-      questions: selected,
+      name: `Sesión Inteligente (${questions.length}Q · ${isTutorMode ? 'Modo Tutor' : 'Modo Simulacro'})`,
+      questions: questions,
       isOfficial50: false,
-      timeLimitSec: Math.round(selected.length * 72)
+      timeLimitSec: timeLimitSec,
+      isTutorMode: isTutorMode
     });
+  }
+
+  function renderSmartSessionConfig() {
+    const container = document.getElementById('smart-session-config-container');
+    if (!container) return;
+
+    const telemetry = getSmartSessionTelemetry(SMART_CONFIG.count, SMART_CONFIG.selectedTopics);
+    const estMinutes = Math.max(2, Math.round(SMART_CONFIG.count * (SMART_CONFIG.mode === 'tutor' ? 1.0 : 0.8)));
+
+    const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+    const topicLabels = {
+      T1: 'T1: Intro SSOO (46Q)',
+      T2: 'T2: Procesos (131Q · 40%)',
+      T3: 'T3: Memoria (35Q)',
+      T4: 'T4: E/S y Ficheros (103Q · 32%)',
+      T5: 'T5: Seguridad (25Q)',
+      T6: 'T6: Distribuidos (18Q)'
+    };
+
+    let topicsHtml = `
+      <button class="smart-topic-chip ${SMART_CONFIG.topicMode === 'all' ? 'active' : ''}" id="chip-topic-all">
+        ★ Todos los Temas (Automático)
+      </button>
+    `;
+
+    topicKeys.forEach(tKey => {
+      const isSelected = SMART_CONFIG.topicMode === 'custom' && SMART_CONFIG.selectedTopics.has(tKey);
+      topicsHtml += `
+        <button class="smart-topic-chip ${isSelected ? 'active' : ''}" data-topic="${tKey}">
+          ${topicLabels[tKey] || tKey}
+        </button>
+      `;
+    });
+
+    container.innerHTML = `
+      <div class="smart-config-wrap">
+        <div class="smart-card">
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h2 style="font-size:1.35rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
+                Sesión Inteligente Adaptativa
+              </h2>
+              <p style="font-size:0.9rem; color:var(--text-muted); margin:0;">
+                El motor algorítmico equilibra repasos vencidos, tus temas más débiles y preguntas no exploradas para maximizar la retención.
+              </p>
+            </div>
+            <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); background:var(--accent-subtle); border:1px solid var(--accent-border); padding:4px 12px; border-radius:var(--radius-pill);">
+              Algoritmo de Aprendizaje Activo
+            </span>
+          </div>
+
+          <!-- Section 1: Modo de Aprendizaje -->
+          <div style="margin-top:20px;">
+            <div class="smart-section-label">
+              <span>Modo de Aprendizaje:</span>
+            </div>
+            <div class="smart-mode-grid">
+              <div class="smart-mode-card ${SMART_CONFIG.mode === 'tutor' ? 'active' : ''}" id="card-mode-tutor">
+                <div class="smart-mode-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  <span>Modo Tutor Guiado</span>
+                </div>
+                <div class="smart-mode-desc">
+                  Retroalimentación y explicación inmediata tras cada pregunta. Ideal para asimilar conceptos teóricos y mnemotecnia.
+                </div>
+              </div>
+
+              <div class="smart-mode-card ${SMART_CONFIG.mode === 'exam' ? 'active' : ''}" id="card-mode-exam">
+                <div class="smart-mode-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span>Modo Simulacro Evaluativo</span>
+                </div>
+                <div class="smart-mode-desc">
+                  Evaluación continua con cronómetro sin interrupciones. Informe de resultados, netos y corrección al entregar.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Tamaño de la Sesión -->
+          <div>
+            <div class="smart-section-label">
+              <span>Volumen de Preguntas:</span>
+            </div>
+            <div class="smart-presets-grid">
+              <div class="smart-preset-btn ${SMART_CONFIG.preset === '10' ? 'active' : ''}" data-preset="10">
+                <div class="smart-preset-num">10</div>
+                <div class="smart-preset-tag">Rápida · ~8 min</div>
+              </div>
+              <div class="smart-preset-btn ${SMART_CONFIG.preset === '20' ? 'active' : ''}" data-preset="20">
+                <div class="smart-preset-num">20</div>
+                <div class="smart-preset-tag">Estándar · ~18 min</div>
+              </div>
+              <div class="smart-preset-btn ${SMART_CONFIG.preset === '30' ? 'active' : ''}" data-preset="30">
+                <div class="smart-preset-num">30</div>
+                <div class="smart-preset-tag">Extensa · ~28 min</div>
+              </div>
+              <div class="smart-preset-btn ${SMART_CONFIG.preset === 'custom' ? 'active' : ''}" data-preset="custom">
+                <div class="smart-preset-num">${SMART_CONFIG.preset === 'custom' ? SMART_CONFIG.count : '...'}</div>
+                <div class="smart-preset-tag">Personalizada</div>
+              </div>
+            </div>
+
+            ${SMART_CONFIG.preset === 'custom' ? `
+              <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:14px 20px; margin-bottom:18px; display:flex; align-items:center; gap:16px;">
+                <span class="mono" style="font-size:0.85rem; font-weight:700; color:var(--text-pure); min-width:80px;">${SMART_CONFIG.count} preguntas</span>
+                <input type="range" id="smart-slider-custom" min="5" max="50" step="5" value="${SMART_CONFIG.count}" style="flex:1; cursor:pointer;">
+                <span class="mono" style="font-size:0.78rem; color:var(--text-dim);">~${Math.round(SMART_CONFIG.count * 0.9)} min</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Section 3: Selección Temática -->
+          <div>
+            <div class="smart-section-label">
+              <span>Alcance Temático:</span>
+            </div>
+            <div class="smart-topics-wrap" id="smart-topics-container">
+              ${topicsHtml}
+            </div>
+          </div>
+
+          <!-- Section 4: Telemetría Predictiva del Algoritmo -->
+          <div>
+            <div class="smart-section-label">
+              <span>Composición Predictiva del Lote:</span>
+            </div>
+            <div class="smart-preview-grid">
+              <div class="smart-preview-card">
+                <div class="smart-preview-val" style="color:var(--accent);">~${telemetry.previewDue}Q</div>
+                <div class="smart-preview-lbl">Repasos Vencidos SM-2</div>
+              </div>
+              <div class="smart-preview-card">
+                <div class="smart-preview-val" style="color:var(--err);">~${telemetry.previewWeak}Q</div>
+                <div class="smart-preview-lbl">Tema Más Débil ([${telemetry.weakestTopic}])</div>
+              </div>
+              <div class="smart-preview-card">
+                <div class="smart-preview-val" style="color:var(--warn);">~${telemetry.previewNew}Q</div>
+                <div class="smart-preview-lbl">Nuevas (Ampliación)</div>
+              </div>
+              <div class="smart-preview-card">
+                <div class="smart-preview-val mono">~${estMinutes} min</div>
+                <div class="smart-preview-lbl">Tiempo Estimado</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Primary CTA Button -->
+          <div>
+            <button class="act-btn-pro primary" id="btn-launch-smart-active" style="width:100%; padding:14px 28px; font-size:1.05rem; justify-content:center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Iniciar Sesión Inteligente (${SMART_CONFIG.count} Preguntas · ${SMART_CONFIG.mode === 'tutor' ? 'Modo Tutor' : 'Modo Simulacro'})
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Bind event handlers
+    const cardTutor = document.getElementById('card-mode-tutor');
+    const cardExam = document.getElementById('card-mode-exam');
+    if (cardTutor) cardTutor.onclick = () => {
+      AUDIO.playClick();
+      SMART_CONFIG.mode = 'tutor';
+      renderSmartSessionConfig();
+    };
+    if (cardExam) cardExam.onclick = () => {
+      AUDIO.playClick();
+      SMART_CONFIG.mode = 'exam';
+      renderSmartSessionConfig();
+    };
+
+    const presetBtns = container.querySelectorAll('.smart-preset-btn');
+    presetBtns.forEach(btn => {
+      btn.onclick = () => {
+        AUDIO.playClick();
+        const p = btn.getAttribute('data-preset');
+        SMART_CONFIG.preset = p;
+        if (p === '10') SMART_CONFIG.count = 10;
+        else if (p === '20') SMART_CONFIG.count = 20;
+        else if (p === '30') SMART_CONFIG.count = 30;
+        else if (p === 'custom' && SMART_CONFIG.count < 5) SMART_CONFIG.count = 25;
+        renderSmartSessionConfig();
+      };
+    });
+
+    const slider = document.getElementById('smart-slider-custom');
+    if (slider) {
+      slider.oninput = function () {
+        SMART_CONFIG.count = parseInt(this.value, 10);
+        renderSmartSessionConfig();
+      };
+    }
+
+    const chipAll = document.getElementById('chip-topic-all');
+    if (chipAll) chipAll.onclick = () => {
+      AUDIO.playClick();
+      SMART_CONFIG.topicMode = 'all';
+      SMART_CONFIG.selectedTopics = new Set(['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
+      renderSmartSessionConfig();
+    };
+
+    const topicChips = container.querySelectorAll('.smart-topic-chip[data-topic]');
+    topicChips.forEach(chip => {
+      chip.onclick = () => {
+        AUDIO.playClick();
+        const t = chip.getAttribute('data-topic');
+        if (SMART_CONFIG.topicMode === 'all') {
+          SMART_CONFIG.topicMode = 'custom';
+          SMART_CONFIG.selectedTopics = new Set([t]);
+        } else {
+          if (SMART_CONFIG.selectedTopics.has(t)) {
+            SMART_CONFIG.selectedTopics.delete(t);
+            if (SMART_CONFIG.selectedTopics.size === 0) {
+              SMART_CONFIG.topicMode = 'all';
+              SMART_CONFIG.selectedTopics = new Set(['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
+            }
+          } else {
+            SMART_CONFIG.selectedTopics.add(t);
+            if (SMART_CONFIG.selectedTopics.size === 6) {
+              SMART_CONFIG.topicMode = 'all';
+            }
+          }
+        }
+        renderSmartSessionConfig();
+      };
+    });
+
+    const launchBtn = document.getElementById('btn-launch-smart-active');
+    if (launchBtn) {
+      launchBtn.onclick = () => {
+        AUDIO.playClick();
+        startSmartSession();
+      };
+    }
   }
 
   function startTopicQuiz(topicKey, count) {
@@ -1819,9 +2159,11 @@
       currentIndex: 0,
       userAnswers: {}, // { [index]: 0 or 1 }
       flags: {}, // { [index]: boolean }
+      tutorRevealed: {}, // { [index]: boolean }
+      isTutorMode: !!config.isTutorMode,
       isOfficial50: !!config.isOfficial50,
-      timeLimitSec: config.timeLimitSec || 3600,
-      remainingSec: config.timeLimitSec || 3600,
+      timeLimitSec: config.timeLimitSec !== undefined ? config.timeLimitSec : 3600,
+      remainingSec: config.timeLimitSec !== undefined ? config.timeLimitSec : 3600,
       startTime: Date.now()
     };
 
@@ -1829,7 +2171,21 @@
     renderQuizNavigator();
     renderCurrentQuestion();
     updateExamProgressBar();
-    startQuizTimer();
+
+    if (!config.isTutorMode || config.timeLimitSec > 0) {
+      startQuizTimer();
+    } else {
+      const timerEl = document.getElementById('quiz-timer');
+      if (timerEl) {
+        timerEl.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+          <span>Modo Tutor</span>
+        `;
+      }
+    }
 
     switchView('quiz');
     showToast(`Comenzando: ${config.name}`, 'info');
@@ -2016,21 +2372,60 @@
     // Options container with smooth slide animation
     const optionsContainer = document.getElementById('quiz-options-container');
     if (optionsContainer) {
+      const isRevealedInTutor = quiz.isTutorMode && quiz.tutorRevealed && quiz.tutorRevealed[idx];
       const userSelected = quiz.userAnswers[idx];
+      const isCorrect = userSelected === currentQ.ans;
       const opts = currentQ.opts || ['Verdadero', 'Falso'];
       let html = '';
 
       opts.forEach(function (optText, optIdx) {
-        const isSelected = userSelected === optIdx;
+        let tileClass = 'opt-tile';
+        if (isRevealedInTutor) {
+          tileClass += ' disabled';
+          if (optIdx === currentQ.ans) {
+            tileClass += ' is-tutor-correct';
+          } else if (userSelected === optIdx) {
+            tileClass += ' is-tutor-wrong';
+          }
+        } else if (userSelected === optIdx) {
+          tileClass += ' selected';
+        }
+
         const keyLetter = optIdx === 0 ? 'A' : 'B';
+        const displayLetter = isRevealedInTutor && optIdx === currentQ.ans ? '✓' : (isRevealedInTutor && userSelected === optIdx && !isCorrect ? '✗' : keyLetter);
 
         html += `
-          <div class="opt-tile ${isSelected ? 'selected' : ''}" data-opt-idx="${optIdx}" tabindex="0" role="button" aria-pressed="${isSelected}">
-            <div class="opt-key-badge mono">${keyLetter}</div>
+          <div class="${tileClass}" data-opt-idx="${optIdx}" tabindex="0" role="button" aria-pressed="${userSelected === optIdx}">
+            <div class="opt-key-badge mono">${displayLetter}</div>
             <div class="opt-body-text">${escapeHtml(optText)}</div>
           </div>
         `;
       });
+
+      if (isRevealedInTutor) {
+        html += `
+          <div class="tutor-feedback-box ${isCorrect ? 'correct' : 'wrong'}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+              <div style="font-weight:800; font-size:1.05rem; color:${isCorrect ? 'var(--ok)' : 'var(--err)'}; display:flex; align-items:center; gap:6px;">
+                <span>${isCorrect ? '✓ ¡Respuesta Correcta!' : '✗ Respuesta Incorrecta (-1.0 ptos)'}</span>
+              </div>
+              <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Registrado en Telemetría y SM-2</span>
+            </div>
+            ${currentQ.ex ? `<div style="font-size:0.96rem; color:var(--text-pure); line-height:1.55; margin-bottom:14px;"><strong>Explicación Oficial:</strong> ${escapeHtml(currentQ.ex)}</div>` : ''}
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+              ${idx < quiz.totalQ - 1 ? `
+                <button class="act-btn-pro primary" id="btn-tutor-next" style="padding:10px 22px;">
+                  Siguiente Pregunta →
+                </button>
+              ` : `
+                <button class="act-btn-pro primary" id="btn-tutor-finish" style="padding:10px 22px;">
+                  Finalizar y Ver Resultados
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }
 
       optionsContainer.innerHTML = html;
       optionsContainer.classList.remove('q-anim-slide');
@@ -2038,13 +2433,28 @@
       optionsContainer.classList.add('q-anim-slide');
 
       // Click listeners on option cards
-      const tiles = optionsContainer.querySelectorAll('.opt-tile');
-      tiles.forEach(function (tile) {
-        tile.addEventListener('click', function () {
-          const optIndex = parseInt(this.getAttribute('data-opt-idx'), 10);
-          selectOption(optIndex);
+      if (!isRevealedInTutor) {
+        const tiles = optionsContainer.querySelectorAll('.opt-tile');
+        tiles.forEach(function (tile) {
+          tile.addEventListener('click', function () {
+            const optIndex = parseInt(this.getAttribute('data-opt-idx'), 10);
+            selectOption(optIndex);
+          });
         });
-      });
+      } else {
+        const btnNextQ = optionsContainer.querySelector('#btn-tutor-next');
+        if (btnNextQ) {
+          btnNextQ.onclick = () => {
+            goToQuestion(idx + 1);
+          };
+        }
+        const btnFinishQ = optionsContainer.querySelector('#btn-tutor-finish');
+        if (btnFinishQ) {
+          btnFinishQ.onclick = () => {
+            finishQuiz();
+          };
+        }
+      }
     }
 
     // Update Previous / Next button states
@@ -2074,15 +2484,23 @@
     const navStrip = document.getElementById('quiz-navigator');
     if (!navStrip || !APP.activeQuiz) return;
 
+    const quiz = APP.activeQuiz;
     const pills = navStrip.querySelectorAll('.nav-grid-pill');
     pills.forEach(function (pill, i) {
-      const isCurrent = i === APP.activeQuiz.currentIndex;
-      const isAnswered = APP.activeQuiz.userAnswers[i] !== undefined;
-      const isFlagged = !!APP.activeQuiz.flags[i];
+      const isCurrent = i === quiz.currentIndex;
+      const isAnswered = quiz.userAnswers[i] !== undefined;
+      const isFlagged = !!quiz.flags[i];
 
       pill.classList.toggle('current', isCurrent);
       pill.classList.toggle('answered', isAnswered);
       pill.classList.toggle('flagged', isFlagged);
+
+      if (quiz.isTutorMode && quiz.tutorRevealed && quiz.tutorRevealed[i]) {
+        const qItem = quiz.questions[i];
+        const isCorr = quiz.userAnswers[i] === qItem.ans;
+        pill.classList.toggle('answered-correct', isCorr);
+        pill.classList.toggle('answered-wrong', !isCorr);
+      }
     });
   }
 
@@ -2098,6 +2516,35 @@
   function selectOption(optIndex) {
     if (!APP.activeQuiz) return;
     const idx = APP.activeQuiz.currentIndex;
+    const currentQ = APP.activeQuiz.questions[idx];
+
+    // Tutor Mode Handling
+    if (APP.activeQuiz.isTutorMode) {
+      if (APP.activeQuiz.tutorRevealed && APP.activeQuiz.tutorRevealed[idx]) {
+        return; // Already revealed in tutor mode
+      }
+
+      APP.activeQuiz.userAnswers[idx] = optIndex;
+      if (!APP.activeQuiz.tutorRevealed) APP.activeQuiz.tutorRevealed = {};
+      APP.activeQuiz.tutorRevealed[idx] = true;
+
+      const isCorrect = optIndex === currentQ.ans;
+      if (isCorrect) {
+        AUDIO.playSuccess();
+      } else {
+        AUDIO.playAlert();
+      }
+
+      LEARNING_ENGINE.recordAttempt({
+        questionId: currentQ.id,
+        isCorrect: isCorrect,
+        userAnswer: optIndex,
+        context: 'smart_tutor'
+      });
+
+      renderCurrentQuestion();
+      return;
+    }
 
     AUDIO.playSelect();
 
@@ -2141,6 +2588,18 @@
 
       // Quiz mode keyboard handling
       if (APP.currentView === 'quiz' && APP.activeQuiz) {
+        if (APP.activeQuiz.isTutorMode && APP.activeQuiz.tutorRevealed && APP.activeQuiz.tutorRevealed[APP.activeQuiz.currentIndex]) {
+          if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === ' ') {
+            e.preventDefault();
+            if (APP.activeQuiz.currentIndex < APP.activeQuiz.totalQ - 1) {
+              goToQuestion(APP.activeQuiz.currentIndex + 1);
+            } else {
+              finishQuiz();
+            }
+            return;
+          }
+        }
+
         if (e.key === '1' || e.key === 'a' || e.key === 'A') {
           e.preventDefault();
           selectOption(0);
@@ -4234,6 +4693,9 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     startHistoricalExam: startHistoricalExam,
     startTopicTest: startTopicQuiz,
     startSmartSession: startSmartSession,
+    generateSmartSessionQuestions: generateSmartSessionQuestions,
+    renderSmartSessionConfig: renderSmartSessionConfig,
+    getSmartSessionTelemetry: getSmartSessionTelemetry,
     startMistakesQuiz: startMistakesQuiz,
     startSpacedReviewSession: startSpacedReviewSession,
     exitSpacedReviewSession: exitSpacedReviewSession,
@@ -4286,7 +4748,12 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
       } else {
         showToast('No se encontró el examen especificado', 'error');
       }
-    }
+    },
+    selectOption: selectOption,
+    goToQuestion: goToQuestion,
+    finishQuiz: finishQuiz,
+    getActiveQuiz: function () { return APP.activeQuiz; },
+    getApp: function () { return APP; }
   };
 
   // Run on DOM Ready

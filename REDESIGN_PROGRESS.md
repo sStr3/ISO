@@ -1,6 +1,6 @@
 # ISO STUDIO 2.0 — REGISTRO DE REDISEÑO Y EVOLUCIÓN TÉCNICA
 
-> **Estado general:** FASE 4 COMPLETADA (Módulo A: Repetición Espaciada SM-2 y Reproductor Interactivo + Limpieza Integral de Textos)  
+> **Estado general:** FASE 5 COMPLETADA (Módulo B: Sesión Inteligente Adaptativa, Algoritmo Predictivo y Modo Tutor Guiado)  
 > **Fecha:** 18 de noviembre de 2026  
 > **Equipo:** Senior Frontend Engineer, SaaS UX/UI Designer, Learning Systems Engineer, Data Architect, QA Engineer.
 
@@ -377,4 +377,64 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
 - Pruebas automatizadas de regresión de Fase 3: 100% superadas (`test_phase3_full.js`).
 - Pruebas automatizadas de flujo completo de Fase 4: 100% superadas (`test_phase4_full.js`).
 - Validación estricta de sintaxis en `app.js` y `questions.js` sin errores.
+
+---
+
+## 8. FASE 5 IMPLEMENTADA — MÓDULO B: SESIÓN INTELIGENTE ADAPTATIVA Y MODO TUTOR (FIGMA PANTALLAS 14 Y 15)
+
+### 8.1 Configurador de Sesión Adaptativa (`#subtab-study-smart`, Figma Pantalla 14)
+- **Selector de Modo de Estudio:**
+  - **Modo Tutor Guiado:** retroalimentación y explicación inmediata tras cada pregunta, bloqueo de respuesta, audio didáctico y avance fluido. Ideal para aprendizaje activo, asimilación y comprensión de conceptos técnicos.
+  - **Modo Simulacro Evaluativo:** cronómetro estricto ajustado a 72 segundos por pregunta, sin retroalimentación intermedia, evaluación acumulativa con desglose de aciertos, fallos y nota neta final.
+- **Selector de Volumen de Preguntas:**
+  - `10 Preguntas`: sesión rápida (~8 min).
+  - `20 Preguntas`: sesión estándar recomendada (~18 min).
+  - `30 Preguntas`: sesión intensiva (~28 min).
+  - `Personalizada`: selector numérico interactivo (rango de 5 a 50 preguntas).
+- **Alcance Temático:**
+  - Botón de selección global `Todos los temas`.
+  - Chips temáticos multiselección individuales (`T1` a `T6`) con indicación de volumen y ponderación oficial de la asignatura (`T2: 131Q · 40%`, `T4: 103Q · 32%`).
+- **Panel de Telemetría Predictiva del Lote:**
+  - Análisis reactivo en tiempo real del banco antes de iniciar la sesión:
+    - *Repasos Vencidos SM-2:* estimación de preguntas pendientes en el intervalo de recuperación activa.
+    - *Tema Más Débil:* detección automática del tema con menor tasa de acierto acumulada en el historial.
+    - *Nuevas (Ampliación):* preguntas aún no intentadas para expandir la cobertura del temario.
+    - *Tiempo Estimado:* cálculo predictivo de duración de la sesión.
+- **Botón Primario de Lanzamiento:**
+  - Botón CTA de gran visibilidad (`Iniciar Sesión Inteligente (N Preguntas · Modo X)`) que lanza la sesión instantáneamente con los parámetros configurados.
+
+### 8.2 Algoritmo de Equilibrado Adaptativo (`generateSmartSessionQuestions`)
+- **Jerarquía Estricta de Priorización:**
+  1. Preguntas vencidas según el algoritmo SM-2 (`nextReviewDate <= now`).
+  2. Preguntas de la pila de fallos activos (`mistakesBank`).
+  3. Preguntas pertenecientes al tema con menor rendimiento del usuario (`weakestTopic`).
+  4. Preguntas no practicadas (`totalAttempts === 0`) para garantizar cobertura del 100% del temario.
+  5. Preguntas de afianzamiento y consolidación de la memoria a largo plazo.
+- **Garantías Matemáticas y de Calidad:**
+  - **Cero duplicados garantizados:** control mediante estructura `Set` de identificadores únicos en todo el proceso de selección.
+  - **Regla anti-fatiga:** limitación de preguntas erróneas a un máximo del 40-50% de la sesión para evitar frustración cognitiva.
+  - **Regla anti-sobreexposición:** barajado determinista de candidatos prioritarios.
+  - **Alineación con el examen oficial:** cuando no hay datos históricos, prioriza automáticamente T2 (40%) y T4 (32%).
+
+### 8.3 Modo Tutor Guiado en el Lienzo de Examen (`#view-quiz`)
+- **Interacción y Retroalimentación Inmediata:**
+  - Al pulsar una opción, la tarjeta seleccionada se evalúa instantáneamente:
+    - Si es correcta: resalta en verde `.is-tutor-correct`, distintivo `✓` y reproduce `AUDIO.playSuccess()`.
+    - Si es incorrecta: resalta en rojo `.is-tutor-wrong`, muestra la opción correcta en verde `.is-tutor-correct` y reproduce `AUDIO.playAlert()`.
+  - Bloqueo inmediato de opciones para evitar respuestas posteriores fraudulentas (`disabled`).
+  - Tarjeta de justificación pedagógica (`.tutor-feedback-box`):
+    - Título de estado (`✓ ¡Respuesta Correcta!` o `✗ Respuesta Incorrecta (-1.0 ptos)`).
+    - Justificación académica oficial (`q.ex`).
+    - Botón primario: `Siguiente Pregunta →` o `Finalizar y Ver Resultados`.
+- **Integración con Navegador y Telemetría:**
+  - La pastilla correspondiente en la tira superior del navegador (`#quiz-navigator`) se colorea de inmediato en verde (`.answered-correct`) o rojo (`.answered-wrong`).
+  - Se registra automáticamente el intento en `LEARNING_ENGINE.recordAttempt` con contexto `'smart_tutor'`.
+- **Navegación Ergonométrica por Teclado:**
+  - Al revelarse la retroalimentación, pulsar `Enter`, `Flecha Derecha (→)` o `Espacio` avanza automáticamente a la siguiente pregunta.
+
+### 8.4 Verificación de Calidad y Pruebas
+- Pruebas automatizadas de Fase 5: **35/35 pruebas superadas (100%)** (`test_phase5_full.js`).
+- Suite de regresión integral (Fases 1 a 5): **100% superada**.
+- Sintaxis JavaScript verificada con Node.js sin advertencias.
+
 
