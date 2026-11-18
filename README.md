@@ -25,11 +25,19 @@ Plataforma web de alto rendimiento y diseño de alto contraste (#1C1C28 y #F6E6E
   - **Radar temático:** Diagnostica automáticamente el tema más vulnerable según tus respuestas y te sugiere entrenarlo.
   - Historial de simulacros guardado localmente en `localStorage`.
 
-- **Experiencia de Usuario Moderna:**
-  - Menú lateral plegable a dock de iconos con tooltips.
-  - Tipografía técnica **IBM Plex Mono** y **IBM Plex Sans**.
-  - Totalmente autónomo: Iconos vectoriales SVG inline sin dependencias externas.
-  - Atajos de teclado: `[A]`, `[B]`, `[Espacio / D]` para dejar en blanco, `[←] / [→]` para navegar, `[F]` para marcar duda.
+- **Experiencia de Usuario Inmersiva y Gamificada:**
+  - **Atmósfera Cyber Dark:** Iluminación ambiental sutil con orbes flotantes, acabado *glassmorphism* con desenfoque de fondo y bordes luminosos reactivos.
+  - **Animaciones Fluidas y Micro-interacciones:**
+    - Barra de progreso de examen en vivo con destello animado y medidor de racha (*streak flame*).
+    - Deslizamiento suave entre preguntas (`qSlideIn`) y pulsación táctil al responder.
+    - Curva de evolución de notas SVG que se dibuja automáticamente en pantalla.
+    - Medidor circular (*gauge ring*) animado para la calificación final del examen.
+    - Cañón de confeti en Canvas a 60fps y fanfarria al superar el corte oficial (≥ 16 netos / 5.0).
+  - **Efectos de Sonido Integrados (Web Audio API):** Audio sintetizado nativo de latencia cero para selecciones, navegación y celebraciones, con control de silenciado (🔊 / 🔇).
+  - **Menú lateral plegable:** Dock de iconos con tooltips flotantes inteligentes.
+  - **Tipografía técnica:** IBM Plex Mono e IBM Plex Sans con jerarquía de alto contraste.
+  - **Totalmente autónomo:** Sin dependencias externas ni librerías pesadas (100% JavaScript y CSS nativo).
+  - **Atajos de teclado:** `[A]`, `[B]`, `[Espacio / D]` para dejar en blanco, `[←] / [→]` para navegar, `[F]` para marcar duda.
 
 ---
 
