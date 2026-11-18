@@ -20,6 +20,7 @@
     testHistory: [],
     mistakesBank: {}, // { [questionId]: failCount }
     activeQuiz: null,
+    activeReviewSession: null, // { questions: [], currentIndex: 0, results: [], isRevealed: false }
     lastResult: null,
     timerHandle: null,
     activeReviewFilter: 'all',
@@ -190,6 +191,27 @@
         gain.connect(this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.22);
+      } catch(e) {}
+    },
+    playSuccess() {
+      if (this.muted) return;
+      this.ensureCtx();
+      if (!this.ctx) return;
+      try {
+        const notes = [659.25, 880.00];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          const start = this.ctx.currentTime + idx * 0.08;
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.08, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(start);
+          osc.stop(start + 0.16);
+        });
       } catch(e) {}
     }
   };
@@ -953,6 +975,7 @@
 
     // Subtab specific render hooks
     if (parentKey === 'review') {
+      if (subtabKey === 'review-spaced') renderSpacedRepetitionView();
       if (subtabKey === 'review-stack') renderMistakesView();
       if (subtabKey === 'review-errors') renderErrorsDiagnosis();
     } else if (parentKey === 'admin') {
@@ -978,6 +1001,7 @@
       exams: { view: 'study', subtab: 'study-exams' },
       topics: { view: 'study', subtab: 'study-topics' },
       smart: { view: 'study', subtab: 'study-smart' },
+      spaced: { view: 'review', subtab: 'review-spaced' },
       mistakes: { view: 'review', subtab: 'review-stack' },
       bank: { view: 'admin', subtab: 'admin-bank' },
       history: { view: 'admin', subtab: 'admin-history' },
@@ -1006,12 +1030,12 @@
     const breadcrumbCurrent = document.getElementById('breadcrumb-current');
     if (breadcrumbCurrent) {
       const titles = {
-        dashboard: 'Inicio & Analítica de Rendimiento',
+        dashboard: 'Panel de Rendimiento',
         study: 'Estudiar / Simulacros y Exámenes',
-        review: 'Repasar / Pila de Dudas y Diagnóstico',
-        admin: 'Administrar / Banco y Gestión',
-        quiz: 'Simulador de Examen',
-        results: 'Informe de Resultados'
+        review: 'Repasar / Repetición Espaciada y Diagnóstico',
+        admin: 'Administrar / Banco y Configuración',
+        quiz: 'Simulacro en Curso',
+        results: 'Resultados del Examen'
       };
       breadcrumbCurrent.textContent = titles[viewKey] || viewKey;
     }
@@ -1031,7 +1055,7 @@
       switchSubtab(viewKey, subtabKey);
     } else {
       if (viewKey === 'study') switchSubtab('study', 'study-official');
-      else if (viewKey === 'review') switchSubtab('review', 'review-stack');
+      else if (viewKey === 'review') switchSubtab('review', 'review-spaced');
       else if (viewKey === 'admin') switchSubtab('admin', 'admin-bank');
     }
 
@@ -1039,7 +1063,7 @@
     if (viewKey === 'dashboard') {
       renderAnalyticsDashboard();
     } else if (viewKey === 'review') {
-      renderMistakesView();
+      renderSpacedRepetitionView();
     } else if (viewKey === 'admin') {
       renderBankView();
     }
@@ -1190,11 +1214,11 @@
         <div class="readiness-header">
           <div>
             <div style="font-size:1.15rem; font-weight:800; color:var(--text-pure); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <span>Indicador de Preparación Oficial UMU</span>
+              <span>Indicador de Preparación</span>
               <span class="readiness-badge mono" style="background:${statusBg}; color:${statusColor}; border-color:${statusBorder};">${statusText}</span>
             </div>
             <p style="font-size:0.86rem; color:var(--text-muted); margin:4px 0 0 0;">
-              Diagnóstico transparente del modelo de evaluación: simulacros oficiales, aprobados (corte ≥16 netos), cobertura temática y resolución de dudas.
+              Simulacros completados, tasa de aprobados, cobertura y resolución de dudas.
             </p>
           </div>
           <div class="mono" style="font-size:2rem; font-weight:800; color:${statusColor};">
@@ -1317,7 +1341,7 @@
             <path d="M7 16l4-5 4 3 6-8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <div style="font-weight:700; color:var(--text); font-size:1rem; margin-bottom:4px;">No hay simulacros registrados todavía</div>
-          <div style="font-size:0.84rem; max-width:440px; margin-bottom:16px;">Completa tu primer simulacro oficial de 50 preguntas para visualizar tu curva de aprendizaje y evolución de nota con respecto al corte (5.0 / 16 netos).</div>
+          <div style="font-size:0.84rem; max-width:440px; margin-bottom:16px;">Completa tu primer simulacro oficial de 50 preguntas para visualizar tu curva de aprendizaje y evolución de nota con respecto al aprobado (5.0).</div>
           <button class="act-btn-pro primary" id="btn-chart-first-test">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Comenzar Simulacro Oficial
@@ -1382,10 +1406,10 @@
         <line x1="${padX}" y1="${getY(2.5)}" x2="${width - padX}" y2="${getY(2.5)}" stroke="${chartGrid}" stroke-width="1" stroke-dasharray="3,3"/>
         <text x="${padX - 10}" y="${getY(2.5) + 4}" fill="${chartText}" font-size="11" font-family="'IBM Plex Mono', monospace" text-anchor="end">2.5</text>
 
-        <!-- PASS LINE AT 5.0 (16 Netos) -->
+        <!-- PASS LINE AT 5.0 -->
         <line x1="${padX}" y1="${yPass}" x2="${width - padX}" y2="${yPass}" stroke="${chartCutoff}" stroke-width="1.8" stroke-dasharray="5,4"/>
         <text x="${padX - 10}" y="${yPass + 4}" fill="${chartCutoff}" font-size="11" font-weight="700" font-family="'IBM Plex Mono', monospace" text-anchor="end">5.0</text>
-        <text x="${width - padX + 8}" y="${yPass + 4}" fill="${chartCutoff}" font-size="10" font-weight="700" font-family="'IBM Plex Mono', monospace">CORTE 16 NETOS</text>
+        <text x="${width - padX + 8}" y="${yPass + 4}" fill="${chartCutoff}" font-size="10" font-weight="700" font-family="'IBM Plex Mono', monospace">APROBADO (5.0)</text>
 
         <line x1="${padX}" y1="${getY(7.5)}" x2="${width - padX}" y2="${getY(7.5)}" stroke="${chartGrid}" stroke-width="1" stroke-dasharray="3,3"/>
         <text x="${padX - 10}" y="${getY(7.5) + 4}" fill="${chartText}" font-size="11" font-family="'IBM Plex Mono', monospace" text-anchor="end">7.5</text>
@@ -2139,6 +2163,28 @@
         return;
       }
 
+      // Spaced Review Player keyboard handling
+      if (APP.currentView === 'review' && APP.activeReviewSession) {
+        if (!APP.activeReviewSession.isRevealed) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            revealSpacedReviewAnswer();
+          }
+        } else {
+          if (e.key === '1') {
+            e.preventDefault();
+            rateSpacedQuestion('fail');
+          } else if (e.key === '2') {
+            e.preventDefault();
+            rateSpacedQuestion('hard');
+          } else if (e.key === '3') {
+            e.preventDefault();
+            rateSpacedQuestion('easy');
+          }
+        }
+        return;
+      }
+
       // Doubt Stack keyboard handling
       if (APP.currentView === 'review') {
         const doubtCard = document.getElementById('doubt-top-card');
@@ -2172,7 +2218,7 @@
 
     if (blankCount > 0 && APP.activeQuiz.remainingSec > 0) {
       const confirmed = confirm(
-        `Tienes ${blankCount} preguntas en blanco (no contestadas). En el examen de la UMU las preguntas en blanco NO restan, pero no suman. ¿Deseas entregar el examen ahora?`
+        `Tienes ${blankCount} preguntas en blanco (no contestadas). Recuerda que no restan puntos netos. ¿Deseas entregar el examen ahora?`
       );
       if (!confirmed) return;
     }
@@ -2318,17 +2364,17 @@
       celebBadge.style.display = 'inline-flex';
       if (scoreVal >= 9.0) {
         celebBadge.className = 'results-celeb-badge pass';
-        celebBadge.innerHTML = '🌟 SOBRESALIENTE OFICIAL — ¡DOMINIO ABSOLUTO!';
+        celebBadge.innerHTML = '🌟 SOBRESALIENTE — ¡DOMINIO TOTAL!';
       } else if (scoreVal >= 7.0) {
         celebBadge.className = 'results-celeb-badge pass';
-        celebBadge.innerHTML = '✨ NOTABLE OFICIAL — ¡GRAN RESULTADO!';
+        celebBadge.innerHTML = '✨ NOTABLE — ¡GRAN RESULTADO!';
       } else if (result.passed) {
         celebBadge.className = 'results-celeb-badge pass';
-        celebBadge.innerHTML = '🎉 ¡ENHORABUENA! APROBADO OFICIAL UMU';
+        celebBadge.innerHTML = '🎉 ¡ENHORABUENA! EXAMEN APROBADO';
       } else {
         celebBadge.className = 'results-celeb-badge fail';
         const needed = Math.max(0, 16 - result.net);
-        celebBadge.innerHTML = `⚡ A ${needed} PUNTOS NETOS DE SUPERAR EL CORTE`;
+        celebBadge.innerHTML = `⚡ A ${needed} PUNTOS NETOS DE APROBAR`;
       }
     }
 
@@ -2346,12 +2392,12 @@
       if (result.passed) {
         statusSubEl.innerHTML = `
           <span style="color:var(--ok); font-weight:800;">APROBADO</span> — Puntuación Neta: 
-          <strong>${result.net} puntos</strong> (Corte oficial superado: ≥ 16 netos).
+          <strong>${result.net}</strong> (≥ 16 netos para aprobar).
         `;
       } else {
         statusSubEl.innerHTML = `
           <span style="color:var(--err); font-weight:800;">SUSPENSO</span> — Puntuación Neta: 
-          <strong>${result.net} puntos</strong> (Se requieren al menos 16 puntos netos para aprobar).
+          <strong>${result.net}</strong> (≥ 16 netos para aprobar).
         `;
       }
     }
@@ -2593,7 +2639,7 @@ sem_post(&mutex); // Salir de Sección Crítica (incrementa a 1)`;
       conceptTitle = 'Estructura de Ficheros UNIX y Descriptores';
       conceptDesc = 'En sistemas tipo UNIX, cada archivo está representado por un inodo único en disco. El inodo almacena todos los metadatos: permisos, propietario, tamaño, fechas de acceso/modificación y punteros a bloques de disco (directos, indirectos simples, dobles y triples).';
       trapTitle = '¿Dónde se guarda el nombre del archivo?';
-      trapDesc = `La trampa más célebre de los exámenes de la UMU ("${escapeHtml(wrongOptText)}") afirma que el inodo guarda el nombre del fichero. ¡Falso! Los nombres de los ficheros se almacenan en los bloques de datos de los DIRECTORIOS, asociados a su número de inodo. Por eso varios nombres (hard links) pueden apuntar al mismo inodo.`;
+      trapDesc = `Una trampa clásica de examen ("${escapeHtml(wrongOptText)}") afirma que el inodo guarda el nombre del fichero. ¡Falso! Los nombres de los ficheros se almacenan en los bloques de datos de los DIRECTORIOS, asociados a su número de inodo. Por eso varios nombres (hard links) pueden apuntar al mismo inodo.`;
       exampleTitle = 'Estructura de Descriptores y Inodos';
       codeSnippet = `int fd[2];
 pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
@@ -2617,12 +2663,12 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 // 4. El planificador (Scheduler) decide si desalojar el proceso actual.`;
       mnemonicRule = 'Solo el RELOJ HARDWARE puede despertar al SO si el proceso está atrapado en un while(1).';
     } else {
-      conceptTitle = 'Análisis Conceptual Oficial UMU';
-      conceptDesc = `En la normativa oficial de examen de la UMU, esta cuestión evalúa la comprensión exacta de: <strong>${escapeHtml(explanationText || correctOptText)}</strong>. La opción oficial [${ansIndex === 0 ? 'A' : 'B'}] es la única estrictamente consistente con el modelo teórico de sistemas operativos.`;
+      conceptTitle = 'Análisis Conceptual';
+      conceptDesc = `Esta cuestión evalúa la comprensión exacta de: <strong>${escapeHtml(explanationText || correctOptText)}</strong>. La opción [${ansIndex === 0 ? 'A' : 'B'}] es la única estrictamente consistente con el modelo teórico de sistemas operativos.`;
       trapTitle = 'Distinción Clave del Enunciado';
       trapDesc = `La opción contraria ("${escapeHtml(wrongOptText)}") contiene una premisa falsa o matiz engañoso frecuente en las preguntas tipo test de la asignatura.`;
-      exampleTitle = 'Justificación Oficial de la Cátedra';
-      codeSnippet = `// Justificación oficial de la cátedra:
+      exampleTitle = 'Justificación Teórica';
+      codeSnippet = `// Justificación oficial:
 // ${escapeHtml(explanationText || correctOptText)}`;
       mnemonicRule = `Respuesta correcta: [${ansIndex === 0 ? 'A' : 'B'}] -> ${escapeHtml(correctOptText.slice(0, 90))}...`;
     }
@@ -2700,7 +2746,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     const topKey = currentQ.t || 'T1';
     const meta = APP.topicMeta[topKey] || { title: topKey, color: '#8CB1F7' };
     const failCount = APP.mistakesBank[currentQ.id] || 1;
-    const testSource = currentQ.source || 'Simulacro Oficial UMU';
+    const testSource = currentQ.source || 'Simulacro Oficial';
 
     let html = `
       <!-- Header Banner -->
@@ -2971,6 +3017,524 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     listContainer.innerHTML = html;
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // FASE 4 — MÓDULO A: REPETICIÓN ESPACIADA (SM-2) Y REPRODUCTOR
+  // ═══════════════════════════════════════════════════════════════════
+
+  function renderSpacedRepetitionView() {
+    const container = document.getElementById('spaced-repetition-container');
+    if (!container) return;
+
+    if (APP.activeReviewSession) {
+      renderSpacedReviewPlayer();
+      return;
+    }
+
+    const dueList = LEARNING_ENGINE.getDueReviews();
+    const counts = LEARNING_ENGINE.getStateCounts();
+    const now = new Date();
+    const overdueList = dueList.filter(q => {
+      const st = APP.learningState[q.id];
+      if (!st || !st.nextReviewDate) return false;
+      return (now - new Date(st.nextReviewDate)) > 24 * 60 * 60 * 1000;
+    });
+
+    const pendingCount = dueList.length;
+    const overdueCount = overdueList.length;
+    const estMinutes = Math.max(2, Math.round(pendingCount * 0.75));
+
+    container.innerHTML = `
+      <div class="spaced-wrap">
+        <!-- Top KPI Grid -->
+        <div class="spaced-kpi-grid">
+          <div class="spaced-kpi-card">
+            <div class="spaced-kpi-num" style="color:var(--accent);">${pendingCount}</div>
+            <div class="spaced-kpi-lbl">Repasos Pendientes</div>
+          </div>
+          <div class="spaced-kpi-card">
+            <div class="spaced-kpi-num" style="color:${overdueCount > 0 ? 'var(--err)' : 'var(--text-dim)'};">${overdueCount}</div>
+            <div class="spaced-kpi-lbl">Atrasados (&gt;24h)</div>
+          </div>
+          <div class="spaced-kpi-card">
+            <div class="spaced-kpi-num" style="color:var(--warn);">${counts.new}</div>
+            <div class="spaced-kpi-lbl">Preguntas Nuevas</div>
+          </div>
+          <div class="spaced-kpi-card">
+            <div class="spaced-kpi-num" style="color:var(--ok);">${counts.mastered}</div>
+            <div class="spaced-kpi-lbl">Dominadas</div>
+          </div>
+          <div class="spaced-kpi-card">
+            <div class="spaced-kpi-num mono">~${estMinutes} min</div>
+            <div class="spaced-kpi-lbl">Tiempo Estimado</div>
+          </div>
+        </div>
+
+        <!-- Session Launcher Card -->
+        <div class="spaced-session-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <h3 style="font-size:1.25rem; font-weight:800; color:var(--text-pure); margin:0;">
+              Sesión de Recuperación Activa
+            </h3>
+            <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); background:var(--accent-subtle); border:1px solid var(--accent-border); padding:3px 10px; border-radius:var(--radius-pill);">
+              Algoritmo SM-2
+            </span>
+          </div>
+
+          <p style="font-size:0.92rem; color:var(--text-muted); margin-bottom:20px; line-height:1.55;">
+            El sistema calcula automáticamente el intervalo ideal de repaso para cada pregunta según tu nivel de recuerdo y facilidad cognitiva.
+          </p>
+
+          <div style="margin-bottom:16px;">
+            <div class="mono" style="font-size:0.76rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px;">
+              Tamaño de la Sesión:
+            </div>
+            <div class="spaced-config-row" id="spaced-session-sizes">
+              <button class="spaced-opt-pill active" data-size="10">10 preguntas</button>
+              <button class="spaced-opt-pill" data-size="20">20 preguntas</button>
+              <button class="spaced-opt-pill" data-size="all">Todas las pendientes (${pendingCount})</button>
+              ${pendingCount === 0 ? `<button class="spaced-opt-pill" data-size="new10">Añadir 10 nuevas</button>` : ''}
+            </div>
+          </div>
+
+          <div style="margin-bottom:24px;">
+            <div class="mono" style="font-size:0.76rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px;">
+              Filtrar por Tema (Opcional):
+            </div>
+            <select id="spaced-topic-select" class="code-input-area" style="max-width:320px; height:42px; padding:6px 12px; font-family:'IBM Plex Mono', monospace; font-size:0.84rem; border-radius:6px; cursor:pointer;">
+              <option value="ALL">Todos los Temas (T1–T6)</option>
+              <option value="T1">Tema 1: Intro SSOO</option>
+              <option value="T2">Tema 2: Procesos y Concurrencia</option>
+              <option value="T3">Tema 3: Gestión de Memoria</option>
+              <option value="T4">Tema 4: E/S y Ficheros</option>
+              <option value="T5">Tema 5: Seguridad</option>
+              <option value="T6">Tema 6: Distribuidos</option>
+            </select>
+          </div>
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="act-btn-pro primary" id="btn-start-spaced-session" style="padding:13px 26px; font-size:1rem; flex:1; justify-content:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              ${pendingCount > 0 ? `Comenzar Repaso (${Math.min(10, pendingCount)} preguntas)` : 'Entrenar Preguntas Nuevas (10Q)'}
+            </button>
+          </div>
+        </div>
+
+        <!-- Reference: SM-2 Interval Rules -->
+        <div class="spaced-hero-card" style="padding:24px;">
+          <h4 style="font-size:1.05rem; font-weight:800; color:var(--text-pure); margin-bottom:14px;">
+            Escala de Intervalos de Repetición
+          </h4>
+          <div class="spaced-schedule-grid">
+            <div class="spaced-schedule-item">
+              <span class="spaced-schedule-badge" style="background:var(--err-bg); color:var(--err); border:1px solid var(--err-border);">1. NO LA SABÍA (FALLO)</span>
+              <div style="font-weight:700; color:var(--text-pure); margin-bottom:4px;">Intervalo: 10 minutos</div>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0; line-height:1.5;">Reinicia la racha de aciertos, reduce el factor de facilidad y vuelve a la fase de aprendizaje activo.</p>
+            </div>
+            <div class="spaced-schedule-item">
+              <span class="spaced-schedule-badge" style="background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-border);">2. ME COSTÓ RECORDARLA</span>
+              <div style="font-weight:700; color:var(--text-pure); margin-bottom:4px;">Intervalo: 1 a 3 días</div>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0; line-height:1.5;">Acierto con esfuerzo cognitivo. Mantiene el intervalo en consolidación sin saltos bruscos.</p>
+            </div>
+            <div class="spaced-schedule-item">
+              <span class="spaced-schedule-badge" style="background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-border);">3. LA SABÍA CON SEGURIDAD</span>
+              <div style="font-weight:700; color:var(--text-pure); margin-bottom:4px;">Intervalo: 7 a 14 días</div>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0; line-height:1.5;">Acierto firme e inmediato. Incrementa el factor de facilidad y promueve la pregunta a Dominada al alcanzar 14 días.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Bind size pills
+    let chosenSize = pendingCount > 0 ? '10' : 'new10';
+    const pills = container.querySelectorAll('.spaced-opt-pill');
+    const startBtn = document.getElementById('btn-start-spaced-session');
+
+    pills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        AUDIO.playClick();
+        pills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        chosenSize = pill.getAttribute('data-size');
+        if (startBtn) {
+          const label = chosenSize === 'all' ? `Todas (${pendingCount}Q)` : (chosenSize === 'new10' ? '10 Nuevas' : `${chosenSize}Q`);
+          startBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Comenzar Repaso (${label})
+          `;
+        }
+      });
+    });
+
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        AUDIO.playClick();
+        const topicVal = document.getElementById('spaced-topic-select')?.value || 'ALL';
+        let count = 10;
+        let includeNew = false;
+        if (chosenSize === 'all') count = pendingCount || 20;
+        else if (chosenSize === '20') count = 20;
+        else if (chosenSize === 'new10') { count = 10; includeNew = true; }
+        else count = 10;
+
+        startSpacedReviewSession({ count, topic: topicVal, includeNew });
+      });
+    }
+  }
+
+  function startSpacedReviewSession({ count = 10, topic = 'ALL', includeNew = false }) {
+    let pool = LEARNING_ENGINE.getDueReviews();
+
+    if (topic !== 'ALL') {
+      pool = pool.filter(q => q.t === topic);
+    }
+
+    if (includeNew || pool.length === 0) {
+      const newQuestions = APP.questions.filter(q => {
+        if (topic !== 'ALL' && q.t !== topic) return false;
+        const st = APP.learningState[q.id];
+        return !st || st.totalAttempts === 0;
+      });
+      const additional = pickRandom(newQuestions, Math.max(count, 10));
+      pool = [...pool, ...additional];
+    }
+
+    if (pool.length === 0) {
+      const fallback = APP.questions.filter(q => topic === 'ALL' || q.t === topic);
+      pool = pickRandom(fallback, Math.min(count, fallback.length));
+    }
+
+    const uniqueMap = new Map();
+    pool.forEach(q => uniqueMap.set(q.id, q));
+    let finalQuestions = Array.from(uniqueMap.values());
+    if (finalQuestions.length > count && count > 0) {
+      finalQuestions = pickRandom(finalQuestions, count);
+    }
+
+    if (finalQuestions.length === 0) {
+      showToast('No hay preguntas disponibles para repasar.', 'info');
+      return;
+    }
+
+    APP.activeReviewSession = {
+      questions: finalQuestions,
+      currentIndex: 0,
+      results: [],
+      isRevealed: false
+    };
+
+    renderSpacedReviewPlayer();
+  }
+
+  function renderSpacedReviewPlayer() {
+    const container = document.getElementById('spaced-repetition-container');
+    if (!container || !APP.activeReviewSession) return;
+
+    const session = APP.activeReviewSession;
+    if (session.currentIndex >= session.questions.length) {
+      renderSpacedReviewSummary();
+      return;
+    }
+
+    const q = session.questions[session.currentIndex];
+    const topKey = q.t || 'T1';
+    const meta = APP.topicMeta[topKey] || { title: topKey, color: '#8CB1F7' };
+    const st = LEARNING_ENGINE.getState(q.id);
+    const ann = LEARNING_ENGINE.getAnnotation(q.id);
+
+    let intervalStr = 'Nuevo';
+    if (st.intervalDays > 0) {
+      if (st.intervalDays < 0.1) intervalStr = '10 minutos';
+      else if (st.intervalDays === 1) intervalStr = '1 día';
+      else intervalStr = `${Math.round(st.intervalDays)} días`;
+    }
+
+    let optionsHtml = '';
+    (q.opts || []).forEach((opt, idx) => {
+      let optClass = 'spaced-opt-tile';
+      let icon = idx === 0 ? 'A' : 'B';
+
+      if (session.isRevealed) {
+        if (idx === q.ans) {
+          optClass += ' is-correct';
+          icon = '✓';
+        } else {
+          optClass += ' is-wrong';
+        }
+      }
+
+      optionsHtml += `
+        <div class="${optClass}">
+          <span class="mono" style="width:32px; height:32px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; background:var(--surface-card); border:1px solid var(--border); font-size:0.9rem; font-weight:800; color:var(--text-pure); flex-shrink:0;">
+            ${icon}
+          </span>
+          <span style="flex:1;">${escapeHtml(opt)}</span>
+        </div>
+      `;
+    });
+
+    let revealedSectionHtml = '';
+    if (!session.isRevealed) {
+      revealedSectionHtml = `
+        <div class="spaced-reveal-box">
+          <button class="act-btn-pro primary" id="btn-spaced-reveal" style="padding:14px 28px; font-size:1.05rem; justify-content:center; width:100%; max-width:360px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Mostrar Respuesta [Espacio]
+          </button>
+        </div>
+      `;
+    } else {
+      revealedSectionHtml = `
+        <div class="spaced-revealed-panel">
+          ${q.ex ? `
+            <div class="spaced-explanation-card">
+              <div class="mono" style="font-size:0.75rem; font-weight:800; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">
+                Explicación Oficial:
+              </div>
+              <div>${escapeHtml(q.ex)}</div>
+            </div>
+          ` : ''}
+
+          <div style="margin-bottom:20px;">
+            <div class="mono" style="font-size:0.78rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px;">
+              ¿Cómo has recordado esta pregunta?
+            </div>
+            <div class="spaced-confidence-grid">
+              <button class="btn-confidence fail" id="btn-conf-fail">
+                <div>[1] No la sabía</div>
+                <div class="btn-confidence-hint">Repaso en 10 min</div>
+              </button>
+              <button class="btn-confidence hard" id="btn-conf-hard">
+                <div>[2] Me costó recordarla</div>
+                <div class="btn-confidence-hint">Repaso en 1 a 3 días</div>
+              </button>
+              <button class="btn-confidence easy" id="btn-conf-easy">
+                <div>[3] La sabía con seguridad</div>
+                <div class="btn-confidence-hint">Repaso en 7 a 14 días</div>
+              </button>
+            </div>
+            <div class="mono" style="font-size:0.76rem; color:var(--text-dim); text-align:center;">
+              Atajos de teclado: [1] No la sabía · [2] Me costó · [3] Con seguridad
+            </div>
+          </div>
+
+          <!-- Personal Notes Box -->
+          <div class="q-note-box" style="margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span class="mono" style="font-size:0.75rem; color:var(--text-dim); font-weight:700;">APUNTES O NOTA RÁPIDA:</span>
+              <span class="mono" id="spaced-note-saved" style="font-size:0.72rem; color:var(--ok); display:none;">Guardado ✓</span>
+            </div>
+            <textarea class="q-note-textarea" placeholder="Escribe aquí algún recordatorio o truco para esta pregunta..." oninput="window.ISO_STUDIO.setAnnotationNotes('${q.id}', this.value)">${escapeHtml(ann.notes || '')}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="spaced-player-wrap">
+        <!-- Top HUD -->
+        <div class="spaced-player-hud">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="mono" style="font-size:0.86rem; font-weight:800; color:var(--text-pure);">
+              Pregunta ${session.currentIndex + 1} de ${session.questions.length}
+            </span>
+            <span class="topic-tag mono" style="background:var(--surface-raised); color:${meta.color}; border:1px solid var(--border);">
+              ${topKey}
+            </span>
+            <span class="mono" style="font-size:0.78rem; color:var(--text-dim);">
+              Intervalo actual: <strong>${intervalStr}</strong> · Facilidad: <strong>${Number(st.easeFactor).toFixed(1)}x</strong>
+            </span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="favorite-star-btn ${ann.isFavorite ? 'active' : 'inactive'}" onclick="window.ISO_STUDIO.toggleFavorite('${q.id}')" title="Marcar como favorita">
+              ${ann.isFavorite ? '★' : '☆'}
+            </button>
+            <button class="act-btn-pro" id="btn-exit-spaced-session" style="padding:6px 12px; font-size:0.8rem;">
+              Salir de la Sesión
+            </button>
+          </div>
+        </div>
+
+        <!-- Question Card -->
+        <div class="spaced-card-active">
+          <div style="font-size:1.32rem; font-weight:700; color:var(--text-pure); line-height:1.55; margin-bottom:20px;">
+            ${escapeHtml(q.q)}
+          </div>
+
+          <div class="spaced-player-options">
+            ${optionsHtml}
+          </div>
+
+          ${revealedSectionHtml}
+        </div>
+      </div>
+    `;
+
+    // Bind event handlers
+    const btnReveal = document.getElementById('btn-spaced-reveal');
+    if (btnReveal) {
+      btnReveal.addEventListener('click', () => {
+        revealSpacedReviewAnswer();
+      });
+    }
+
+    const btnFail = document.getElementById('btn-conf-fail');
+    if (btnFail) btnFail.addEventListener('click', () => rateSpacedQuestion('fail'));
+
+    const btnHard = document.getElementById('btn-conf-hard');
+    if (btnHard) btnHard.addEventListener('click', () => rateSpacedQuestion('hard'));
+
+    const btnEasy = document.getElementById('btn-conf-easy');
+    if (btnEasy) btnEasy.addEventListener('click', () => rateSpacedQuestion('easy'));
+
+    const btnExit = document.getElementById('btn-exit-spaced-session');
+    if (btnExit) {
+      btnExit.addEventListener('click', () => {
+        AUDIO.playClick();
+        if (confirm('¿Deseas salir de la sesión de repaso? El progreso de las preguntas ya respondidas se ha guardado.')) {
+          exitSpacedReviewSession();
+        }
+      });
+    }
+  }
+
+  function revealSpacedReviewAnswer() {
+    if (!APP.activeReviewSession) return;
+    AUDIO.playClick();
+    APP.activeReviewSession.isRevealed = true;
+    renderSpacedReviewPlayer();
+  }
+
+  function rateSpacedQuestion(rating) {
+    if (!APP.activeReviewSession) return;
+    const session = APP.activeReviewSession;
+    const q = session.questions[session.currentIndex];
+    if (!q) return;
+
+    if (rating === 'fail') {
+      AUDIO.playAlert();
+    } else if (rating === 'hard') {
+      AUDIO.playClick();
+    } else {
+      AUDIO.playSuccess();
+    }
+
+    const isCorrect = rating !== 'fail';
+    const confidence = rating === 'easy' ? 'high' : (rating === 'hard' ? 'medium' : 'low');
+
+    LEARNING_ENGINE.recordAttempt({
+      questionId: q.id,
+      isCorrect: isCorrect,
+      confidence: confidence,
+      context: 'spaced_review'
+    });
+
+    session.results.push({
+      questionId: q.id,
+      rating: rating,
+      isCorrect: isCorrect
+    });
+
+    session.currentIndex++;
+    session.isRevealed = false;
+
+    if (session.currentIndex < session.questions.length) {
+      renderSpacedReviewPlayer();
+    } else {
+      renderSpacedReviewSummary();
+    }
+  }
+
+  function renderSpacedReviewSummary() {
+    const container = document.getElementById('spaced-repetition-container');
+    if (!container || !APP.activeReviewSession) return;
+
+    const results = APP.activeReviewSession.results;
+    const total = results.length;
+    const easyCount = results.filter(r => r.rating === 'easy').length;
+    const hardCount = results.filter(r => r.rating === 'hard').length;
+    const failCount = results.filter(r => r.rating === 'fail').length;
+    const retentionRate = total > 0 ? Math.round(((easyCount + hardCount) / total) * 100) : 0;
+
+    if (retentionRate >= 80) {
+      AUDIO.playFanfare();
+      CONFETTI.launch();
+    } else {
+      AUDIO.playSuccess();
+    }
+
+    container.innerHTML = `
+      <div class="spaced-wrap">
+        <div class="spaced-summary-box">
+          <div style="width:68px; height:68px; border-radius:50%; background:rgba(59, 130, 246, 0.16); border:1.5px solid var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 18px; color:var(--accent);">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+
+          <h2 style="font-size:1.6rem; font-weight:800; color:var(--text-pure); margin-bottom:8px;">
+            ¡Sesión de Repaso Completada!
+          </h2>
+          <p style="font-size:0.96rem; color:var(--text-muted); margin-bottom:24px;">
+            Has repasado <strong>${total} preguntas</strong> con el algoritmo de repetición espaciada.
+          </p>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-bottom:28px;">
+            <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+              <div class="mono" style="font-size:1.6rem; font-weight:800; color:var(--accent);">${retentionRate}%</div>
+              <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Retención</div>
+            </div>
+            <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+              <div class="mono" style="font-size:1.6rem; font-weight:800; color:var(--ok);">${easyCount}</div>
+              <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Con Seguridad</div>
+            </div>
+            <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+              <div class="mono" style="font-size:1.6rem; font-weight:800; color:var(--warn);">${hardCount}</div>
+              <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Con Duda</div>
+            </div>
+            <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius); padding:16px;">
+              <div class="mono" style="font-size:1.6rem; font-weight:800; color:var(--err);">${failCount}</div>
+              <div class="mono" style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Para Reintentar</div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+            <button class="act-btn-pro primary" id="btn-summary-done" style="padding:12px 24px; font-size:0.95rem;">
+              Volver al Panel de Repaso
+            </button>
+            <button class="act-btn-pro" id="btn-summary-restart" style="padding:12px 24px; font-size:0.95rem;">
+              Iniciar Otra Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const btnDone = document.getElementById('btn-summary-done');
+    if (btnDone) {
+      btnDone.addEventListener('click', () => {
+        AUDIO.playClick();
+        exitSpacedReviewSession();
+      });
+    }
+
+    const btnRestart = document.getElementById('btn-summary-restart');
+    if (btnRestart) {
+      btnRestart.addEventListener('click', () => {
+        AUDIO.playClick();
+        exitSpacedReviewSession();
+        startSpacedReviewSession({ count: 10 });
+      });
+    }
+  }
+
+  function exitSpacedReviewSession() {
+    APP.activeReviewSession = null;
+    renderSpacedRepetitionView();
+  }
+
   // ── Main Controller for Mistakes / Doubts View ────────────────────
   function renderMistakesView() {
     updateGlobalHeaderStats();
@@ -3233,25 +3797,25 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     const btn2023 = document.getElementById('btn-launch-2023');
     if (btn2023) btn2023.onclick = () => {
       AUDIO.playClick();
-      startHistoricalExam('2023', 'Examen Oficial Noviembre 2023 (UMU)');
+      startHistoricalExam('2023', 'Examen Oficial Noviembre 2023');
     };
 
     const btn2022 = document.getElementById('btn-launch-2022');
     if (btn2022) btn2022.onclick = () => {
       AUDIO.playClick();
-      startHistoricalExam('2022', 'Examen Oficial Noviembre 2022 (UMU)');
+      startHistoricalExam('2022', 'Examen Oficial Noviembre 2022');
     };
 
     const btnParcial1 = document.getElementById('btn-launch-parcial1');
     if (btnParcial1) btnParcial1.onclick = () => {
       AUDIO.playClick();
-      startHistoricalExam('Parcial I', 'Examen Parcial I Oficial (UMU)');
+      startHistoricalExam('Parcial I', 'Examen Parcial I Oficial');
     };
 
     const btnPrueba2022 = document.getElementById('btn-launch-prueba2022');
     if (btnPrueba2022) btnPrueba2022.onclick = () => {
       AUDIO.playClick();
-      startHistoricalExam('Prueba Nov 2022', 'Prueba Evaluación Nov 2022 (UMU)');
+      startHistoricalExam('Prueba Nov 2022', 'Prueba Evaluación Nov 2022');
     };
 
     // Mistakes view actions
@@ -3671,6 +4235,11 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     startTopicTest: startTopicQuiz,
     startSmartSession: startSmartSession,
     startMistakesQuiz: startMistakesQuiz,
+    startSpacedReviewSession: startSpacedReviewSession,
+    exitSpacedReviewSession: exitSpacedReviewSession,
+    revealSpacedReviewAnswer: revealSpacedReviewAnswer,
+    rateSpacedQuestion: rateSpacedQuestion,
+    renderSpacedRepetitionView: renderSpacedRepetitionView,
     switchView: switchView,
     switchSubtab: switchSubtab,
     exportBackupData: exportBackupData,

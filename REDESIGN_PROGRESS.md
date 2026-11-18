@@ -1,7 +1,7 @@
 # ISO STUDIO 2.0 — REGISTRO DE REDISEÑO Y EVOLUCIÓN TÉCNICA
 
-> **Estado general:** FASE 3 COMPLETADA (Infraestructura de Datos y Aprendizaje + Tipografía Arial)  
-> **Fecha:** 17 de noviembre de 2026  
+> **Estado general:** FASE 4 COMPLETADA (Módulo A: Repetición Espaciada SM-2 y Reproductor Interactivo + Limpieza Integral de Textos)  
+> **Fecha:** 18 de noviembre de 2026  
 > **Equipo:** Senior Frontend Engineer, SaaS UX/UI Designer, Learning Systems Engineer, Data Architect, QA Engineer.
 
 ---
@@ -325,4 +325,56 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
      - Desplegar explicación extendida con `N` o `E`.
      - Alternar acordeón oficial con `Espacio`.
    - **Microinteracciones y feedback táctil:** estados `:active` en todas las opciones y botones para sensación de respuesta inmediata.
+
+---
+
+## 7. FASE 4 IMPLEMENTADA — MÓDULO A: REPETICIÓN ESPACIADA (SM-2) Y REPRODUCTOR
+
+### 7.1 Limpieza Radical de Textos Innecesarios y Boilerplate
+- **Top Bar:** Eliminación completa de las 3 pastillas de estadísticas redundantes (`Test: N, Aprobados: N%, Fallos: N`).
+- **Sidebar Header:** Retirada definitiva del distintivo `UMU` de la marca, dejando un limpio y profesional `ISO STUDIO`.
+- **Sidebar Footer:** Eliminación completa del pie repetitivo (`Normativa UMU: +1.0 / -1.0 / 0 | Corte: 16 netos`). La información sobre puntuación oficial se presenta exclusivamente en la pantalla de inicio del examen (`#subtab-study-official`).
+- **Depuración Integral:** Eliminación de disclaimers repetitivos, referencias a cátedra y textos redundantes en Dashboard, Analítica, Resultados y Auditor de Preguntas.
+
+### 7.2 Pantalla de Repetición Espaciada (Figma Pantalla 7)
+- **Subpestaña Principal en Repasar:** `#subtab-review-spaced` (Repetición Espaciada SM-2) activada por defecto.
+- **Métricas en Cabecera (KPIs):**
+  - `Repasos Pendientes`: preguntas programadas para hoy (`nextReviewDate <= now`).
+  - `Atrasados (>24h)`: preguntas con más de 24 horas de retraso.
+  - `Preguntas Nuevas`: preguntas aún no intentadas (`totalAttempts === 0`).
+  - `Dominadas`: preguntas con dominio permanente consolidado.
+  - `Tiempo Estimado`: duración estimada de la sesión de repaso (`~X min`).
+- **Configuración de la Sesión:**
+  - Selector de tamaño: 10 preguntas, 20 preguntas, todas las pendientes o añadir 10 nuevas.
+  - Filtro por tema opcional (T1–T6).
+  - Botón primario: `Comenzar Repaso (N preguntas)`.
+- **Guía de Intervalos SM-2:**
+  - 🔴 *No la sabía:* intervalo de 10 minutos (fase de aprendizaje activo).
+  - 🟡 *Me costó recordarla:* intervalo de 1 a 3 días (afianzamiento y consolidación).
+  - 🟢 *La sabía con seguridad:* intervalo de 7 a 14 días (promoción a dominada al superar 14 días).
+
+### 7.3 Reproductor de Repaso Interactivo (Figma Pantalla 15)
+- **Modo Active Recall:**
+  - Cabecera con progreso (`Pregunta X de Y`), etiqueta temática y estado actual de repetición (`Intervalo: X días · Facilidad: 2.5x`).
+  - Enunciado en tipografía grande y sobria (`1.32rem`, `font-weight: 700`).
+  - Fichas de opción A y B sobrias y nítidas (`min-height: 60px`).
+  - Botón de revelado: `Mostrar Respuesta [Espacio]`.
+- **Evaluación de Confianza tras Revelar:**
+  - Resaltado de la opción correcta con borde verde y marca de verificación `✓`.
+  - Explicación oficial detallada en tarjeta con borde de acento.
+  - **Los 3 botones de calificación cognitiva:**
+    - `[1] No la sabía` (rojo, intervalo 10 min, reduce factor de facilidad).
+    - `[2] Me costó recordarla` (amarillo, intervalo 1-3 días).
+    - `[3] La sabía con seguridad` (verde, intervalo 7-14 días, incrementa facilidad).
+  - Editor de notas personales con autoguardado para cada pregunta.
+  - Atajos de teclado: `[Espacio]` para revelar, teclas `1`, `2`, `3` para evaluar directamente.
+- **Resumen al Finalizar la Sesión:**
+  - Pantalla de felicitación con porcentaje de retención global.
+  - Desglose de preguntas recordadas con seguridad, con duda y para reintentar.
+  - Acciones para volver al panel de repaso o iniciar otra sesión de inmediato.
+
+### 7.4 Verificación de Calidad y Pruebas
+- Pruebas automatizadas de regresión de Fase 3: 100% superadas (`test_phase3_full.js`).
+- Pruebas automatizadas de flujo completo de Fase 4: 100% superadas (`test_phase4_full.js`).
+- Validación estricta de sintaxis en `app.js` y `questions.js` sin errores.
 
