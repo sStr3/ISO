@@ -2,3 +2,5 @@
 skills-lock.json
 *.log
 .DS_Store
+figma_page.html
+figma_*.png
