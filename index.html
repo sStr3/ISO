@@ -16,7 +16,7 @@
   <link rel="alternate icon" href="favicon.svg">
 
   <!-- Stylesheet with Cache Busting -->
-  <link rel="stylesheet" href="css/app.css?v=6.0">
+  <link rel="stylesheet" href="css/app.css?v=8.0">
 
   <!-- Embedded Critical Clean Minimalist SaaS Styles (Zero-Cache Resilience) -->
   <style id="iso-pro-critical-glassmorphism">
@@ -962,6 +962,119 @@
       color: #FFFFFF !important;
       border-color: #DC2626 !important;
     }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       FASE 8: INDICADOR DE PREPARACIÓN OFICIAL UMU (MÓDULO F)
+       ═══════════════════════════════════════════════════════════════════ */
+    .readiness-pillars-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+      gap: 12px !important;
+      margin-top: 14px !important;
+    }
+    .readiness-pillar-card {
+      background: var(--surface-raised) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius-sm) !important;
+      padding: 14px 16px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+      transition: all 0.16s ease !important;
+    }
+    [data-theme="light"] .readiness-pillar-card {
+      background: #F8FAFC !important;
+      border-color: #CBD5E1 !important;
+    }
+    .readiness-pillar-card:hover {
+      border-color: var(--border-light) !important;
+      transform: translateY(-1px) !important;
+    }
+    .readiness-pillar-top {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      margin-bottom: 6px !important;
+    }
+    .readiness-pillar-title {
+      font-size: 0.72rem !important;
+      font-weight: 700 !important;
+      color: var(--text-dim) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+    }
+    .readiness-pillar-score {
+      font-size: 0.8rem !important;
+      font-weight: 800 !important;
+      font-family: 'IBM Plex Mono', monospace !important;
+      color: var(--accent) !important;
+    }
+    .readiness-pillar-main {
+      font-size: 1.05rem !important;
+      font-weight: 700 !important;
+      color: var(--text-pure) !important;
+      font-family: 'IBM Plex Mono', monospace !important;
+      margin-bottom: 4px !important;
+    }
+    .readiness-pillar-sub {
+      font-size: 0.76rem !important;
+      color: var(--text-muted) !important;
+      line-height: 1.4 !important;
+    }
+    .readiness-pillar-track {
+      height: 4px !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-radius: 2px !important;
+      overflow: hidden !important;
+      margin-top: 10px !important;
+    }
+    [data-theme="light"] .readiness-pillar-track {
+      background: rgba(0, 0, 0, 0.08) !important;
+    }
+    .readiness-pillar-fill {
+      height: 100% !important;
+      border-radius: 2px !important;
+      transition: width 0.35s ease !important;
+    }
+    .readiness-details-drawer {
+      margin-top: 18px !important;
+      padding-top: 18px !important;
+      border-top: 1px solid var(--border) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 16px !important;
+      animation: viewSlideUp 0.2s ease-out forwards !important;
+    }
+    .readiness-verdict-box {
+      background: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid var(--border) !important;
+      border-left: 4px solid var(--accent) !important;
+      border-radius: var(--radius-sm) !important;
+      padding: 14px 18px !important;
+    }
+    [data-theme="light"] .readiness-verdict-box {
+      background: #F8FAFC !important;
+      border-color: #CBD5E1 !important;
+      border-left-color: var(--accent) !important;
+    }
+    .readiness-topic-breakdown {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .readiness-topic-row {
+      background: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 6px !important;
+      padding: 10px 14px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    [data-theme="light"] .readiness-topic-row {
+      background: #FFFFFF !important;
+      border-color: #E2E8F0 !important;
+    }
   </style>
 
   <script>
@@ -1018,7 +1131,7 @@
           <!-- 1. INICIO -->
           <a href="#dashboard" class="nav-link active" data-view="dashboard" data-tooltip="Inicio & Analítica">
             <div class="nav-link-left">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"/>
                 <rect x="14" y="3" width="7" height="7"/>
                 <rect x="14" y="14" width="7" height="7"/>
@@ -1032,7 +1145,7 @@
           <!-- 2. ESTUDIAR -->
           <a href="#study" class="nav-link" data-view="study" data-tooltip="Simulacros y Exámenes">
             <div class="nav-link-left">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
               </svg>
@@ -1044,7 +1157,7 @@
           <!-- 3. REPASAR -->
           <a href="#review" class="nav-link" data-view="review" data-tooltip="Pila de Dudas y Diagnóstico">
             <div class="nav-link-left">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
               <span class="nav-text-label">Repasar</span>
@@ -1055,7 +1168,7 @@
           <!-- 4. ADMINISTRAR -->
           <a href="#admin" class="nav-link" data-view="admin" data-tooltip="Banco, Historial y Gestión">
             <div class="nav-link-left">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>

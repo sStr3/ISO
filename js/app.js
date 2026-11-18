@@ -1435,112 +1435,483 @@
     renderRecentHistoryTable();
   }
 
-  // ── Indicador de Preparación Oficial UMU ──────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // FASE 8 — MÓDULO F: INDICADOR DE PREPARACIÓN OFICIAL UMU
+  // ═══════════════════════════════════════════════════════════════════
+
+  function calculateOfficialReadiness() {
+    const questions = APP.questions || [];
+    const testHistory = APP.testHistory || [];
+    const mistakesBank = APP.mistakesBank || {};
+    const learningState = APP.learningState || {};
+
+    const topicTotals = { T1: 0, T2: 0, T3: 0, T4: 0, T5: 0, T6: 0 };
+    const topicWeights = { T1: 0.16, T2: 0.40, T3: 0.12, T4: 0.32 };
+
+    questions.forEach(q => {
+      const top = q.t || q.topic || 'T1';
+      if (topicTotals[top] !== undefined) topicTotals[top]++;
+    });
+
+    const testedIds = new Set();
+    const testedByTopic = { T1: new Set(), T2: new Set(), T3: new Set(), T4: new Set(), T5: new Set(), T6: new Set() };
+
+    testHistory.forEach(t => {
+      if (Array.isArray(t.questions)) {
+        t.questions.forEach(q => {
+          testedIds.add(q.id);
+          const top = q.t || q.topic || 'T1';
+          if (testedByTopic[top]) testedByTopic[top].add(q.id);
+        });
+      }
+    });
+
+    Object.keys(learningState).forEach(qId => {
+      testedIds.add(qId);
+      const q = questions.find(x => x.id === qId);
+      if (q) {
+        const top = q.t || q.topic || 'T1';
+        if (testedByTopic[top]) testedByTopic[top].add(qId);
+      }
+    });
+
+    // Pilar 1: Volumen y Regularidad en Simulacros (25%)
+    const official50Tests = testHistory.filter(t => t.totalQ === 50 || t.isOfficial50);
+    const otherTests = testHistory.filter(t => t.totalQ !== 50 && !t.isOfficial50);
+
+    let pilar1Score = Math.min(1.0, official50Tests.length / 5);
+    if (official50Tests.length === 0 && otherTests.length > 0) {
+      pilar1Score = Math.min(0.35, otherTests.length * 0.08);
+    }
+
+    let stabilityBonus = false;
+    if (official50Tests.length >= 3) {
+      const scores = official50Tests.map(t => typeof t.score === 'number' ? t.score : parseFloat(t.score) || 0);
+      const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const variance = scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length;
+      const stdDev = Math.sqrt(variance);
+      if (stdDev < 1.2 && mean >= 5.0) {
+        stabilityBonus = true;
+        pilar1Score = Math.min(1.0, pilar1Score + 0.08);
+      }
+    }
+
+    // Pilar 2: Solidez y Margen sobre el Corte UMU (≥16 netos) (35%)
+    let pilar2Score = 0;
+    let passCount = 0;
+    const totalExams = testHistory.length;
+    let avgNetPoints = 0;
+    let bufferAbove16 = 0;
+
+    if (totalExams > 0) {
+      testHistory.forEach(t => {
+        if (t.passed) passCount++;
+      });
+      const passRate = passCount / totalExams;
+
+      let netSum = 0;
+      testHistory.forEach(t => {
+        let net = 0;
+        if (typeof t.netScore === 'number') {
+          net = t.netScore;
+        } else if (typeof t.score === 'number') {
+          net = (t.score / 10) * (t.totalQ || 50);
+        }
+        netSum += net;
+      });
+      avgNetPoints = netSum / totalExams;
+      bufferAbove16 = avgNetPoints - 16.0;
+
+      let bufferFactor = 0;
+      if (avgNetPoints < 16.0) {
+        bufferFactor = Math.max(0, (avgNetPoints / 16.0) * 0.55);
+      } else {
+        bufferFactor = 0.55 + Math.min(0.45, ((avgNetPoints - 16.0) / 20.0) * 0.45);
+      }
+
+      pilar2Score = Math.max(0, Math.min(1.0, (passRate * 0.45) + (bufferFactor * 0.55)));
+    }
+
+    // Pilar 3: Cobertura Ponderada Curricular T1-T4 (20%)
+    const topicStats = {};
+    let weightedCoverageSum = 0;
+    let weakestOfficialTopic = 'T2';
+    let minCoverage = 1.0;
+
+    ['T1', 'T2', 'T3', 'T4'].forEach(top => {
+      const total = topicTotals[top] || 1;
+      const tested = testedByTopic[top].size;
+      const cov = tested / total;
+      const weight = topicWeights[top];
+      weightedCoverageSum += cov * weight;
+      topicStats[top] = {
+        tested,
+        total,
+        covPct: Math.round(cov * 100),
+        weightPct: Math.round(weight * 100)
+      };
+      if (cov < minCoverage) {
+        minCoverage = cov;
+        weakestOfficialTopic = top;
+      }
+    });
+
+    const pilar3Score = Math.min(1.0, weightedCoverageSum);
+
+    // Pilar 4: Retención SM-2 y Saneamiento de Dudas (20%)
+    let masteredCount = 0;
+    let consolidatingCount = 0;
+    Object.values(learningState).forEach(st => {
+      if (st.status === 'mastered') masteredCount++;
+      else if (st.status === 'consolidating') consolidatingCount++;
+    });
+
+    const practicedCount = testedIds.size;
+    let retentionRate = 0;
+    if (practicedCount > 0) {
+      retentionRate = (masteredCount + (consolidatingCount * 0.5)) / practicedCount;
+    }
+
+    const pendingDoubts = Object.keys(mistakesBank).length;
+    let criticalDoubts = 0;
+    Object.values(mistakesBank).forEach(m => {
+      if ((m.count || m.repeatCount || 1) >= 2) criticalDoubts++;
+    });
+
+    let doubtFactor = 1.0;
+    if (criticalDoubts > 0) {
+      doubtFactor = Math.max(0.3, 1.0 - (criticalDoubts * 0.08));
+    } else if (pendingDoubts > 10) {
+      doubtFactor = Math.max(0.5, 1.0 - ((pendingDoubts - 10) * 0.03));
+    }
+
+    let pilar4Score = 0;
+    if (practicedCount > 0) {
+      pilar4Score = Math.max(0, Math.min(1.0, (retentionRate * 0.6) + (doubtFactor * 0.4)));
+    }
+
+    // Índice Compuesto Ponderado (0 - 100%)
+    const rawIndex = (pilar1Score * 0.25) + (pilar2Score * 0.35) + (pilar3Score * 0.20) + (pilar4Score * 0.20);
+    const scorePct = Math.round(rawIndex * 100);
+
+    let statusKey = 'initial';
+    let statusText = 'NIVEL INICIAL';
+    let statusColor = '#EF4444';
+    let statusBg = 'rgba(239, 68, 68, 0.12)';
+    let statusBorder = 'rgba(239, 68, 68, 0.3)';
+    let verdict = 'Fase de asimilación básica. No se recomienda presentarse al examen oficial en este estado.';
+    let recommendation = `Prioridad: realizar simulacros oficiales de 50 preguntas y elevar cobertura en ${weakestOfficialTopic}.`;
+
+    if (scorePct >= 85) {
+      statusKey = 'excellent';
+      statusText = 'PREPARACIÓN SOBRESALIENTE';
+      statusColor = '#60A5FA';
+      statusBg = 'rgba(96, 165, 250, 0.14)';
+      statusBorder = 'rgba(96, 165, 250, 0.35)';
+      verdict = 'Dominio consolidado del banco oficial y regularidad contrastada sobre el corte UMU (≥16 netos).';
+      recommendation = 'Mantener sesiones cortas de refresco SM-2 antes de la fecha oficial.';
+    } else if (scorePct >= 65) {
+      statusKey = 'ready';
+      statusText = 'CANDIDATO APTO (CORTE SUPERADO)';
+      statusColor = '#10B981';
+      statusBg = 'rgba(16, 185, 129, 0.12)';
+      statusBorder = 'rgba(16, 185, 129, 0.3)';
+      verdict = 'Rendimiento compatible con superar el corte oficial de ≥16 puntos netos.';
+      recommendation = `Asegurar simulacros con cronómetro estricto de 60 min y reforzar el temario ${weakestOfficialTopic}.`;
+    } else if (scorePct >= 35) {
+      statusKey = 'progress';
+      statusText = 'EN PREPARACIÓN ACTIVA';
+      statusColor = '#F59E0B';
+      statusBg = 'rgba(245, 158, 11, 0.12)';
+      statusBorder = 'rgba(245, 158, 11, 0.3)';
+      verdict = 'Base de conocimiento en construcción. Se aprecian lagunas en temas clave del examen.';
+      recommendation = `Sanear las dudas pendientes (${pendingDoubts} activas) y elevar cobertura en ${weakestOfficialTopic} (peso oficial relevante).`;
+    }
+
+    let nextAction = {
+      label: 'Iniciar Simulacro Oficial (50Q)',
+      type: 'official'
+    };
+
+    if (official50Tests.length < 2) {
+      nextAction = {
+        label: 'Comenzar Simulacro Oficial (50Q)',
+        type: 'official'
+      };
+    } else if (criticalDoubts > 0) {
+      nextAction = {
+        label: `Resolver ${criticalDoubts} Dudas Críticas Reincidentes`,
+        type: 'doubts'
+      };
+    } else if (topicStats[weakestOfficialTopic].covPct < 50) {
+      nextAction = {
+        label: `Entrenar Tema ${weakestOfficialTopic} (${topicStats[weakestOfficialTopic].weightPct}% en Examen)`,
+        type: 'topic',
+        topic: weakestOfficialTopic
+      };
+    } else if (pilar4Score < 0.6) {
+      nextAction = {
+        label: 'Repaso Espaciado SM-2',
+        type: 'spaced'
+      };
+    }
+
+    return {
+      scorePct,
+      rawIndex,
+      statusKey,
+      statusText,
+      statusColor,
+      statusBg,
+      statusBorder,
+      verdict,
+      recommendation,
+      nextAction,
+      pillars: {
+        simulations: {
+          weightPct: 25,
+          achievedPct: Math.round(pilar1Score * 25),
+          score: pilar1Score,
+          completed50Q: official50Tests.length,
+          target50Q: 5,
+          stabilityBonus,
+          details: `${official50Tests.length}/5 simulacros de 50Q completados`
+        },
+        passCutoff: {
+          weightPct: 35,
+          achievedPct: Math.round(pilar2Score * 35),
+          score: pilar2Score,
+          passCount,
+          totalTests: totalExams,
+          passRatePct: totalExams > 0 ? Math.round((passCount / totalExams) * 100) : 0,
+          avgNetPoints: Math.round(avgNetPoints * 10) / 10,
+          bufferAbove16: Math.round(bufferAbove16 * 10) / 10,
+          details: totalExams > 0 ? `${passCount}/${totalExams} aprobados · Media: ${Math.round(avgNetPoints * 10) / 10} netos` : 'Sin exámenes realizados'
+        },
+        topicCoverage: {
+          weightPct: 20,
+          achievedPct: Math.round(pilar3Score * 20),
+          score: pilar3Score,
+          topics: topicStats,
+          weakestOfficialTopic,
+          details: `Ponderada: ${Math.round(weightedCoverageSum * 100)}% · Más débil: ${weakestOfficialTopic}`
+        },
+        masteryDoubts: {
+          weightPct: 20,
+          achievedPct: Math.round(pilar4Score * 20),
+          score: pilar4Score,
+          masteredCount,
+          consolidatingCount,
+          practicedCount,
+          pendingDoubts,
+          criticalDoubts,
+          retentionPct: Math.round(retentionRate * 100),
+          details: `${masteredCount} dominadas · ${pendingDoubts} dudas en pila`
+        }
+      }
+    };
+  }
+
+  function executeReadinessAction(type, param) {
+    AUDIO.playClick();
+    if (type === 'official') {
+      startOfficialQuiz();
+    } else if (type === 'doubts') {
+      switchSubtab('review', 'review-stack');
+    } else if (type === 'topic') {
+      startTopicQuiz(param || 'T2', 25);
+    } else if (type === 'spaced') {
+      switchSubtab('review', 'review-spaced');
+    } else {
+      switchView('study', 'study-smart');
+    }
+  }
+
   function updateReadinessIndicator() {
     const container = document.getElementById('dash-readiness-container');
     if (!container) return;
 
-    const totalTests = APP.testHistory.length;
-    let passCount = 0;
-    APP.testHistory.forEach(t => {
-      if (t.passed) passCount++;
-    });
-    const passRate = totalTests > 0 ? (passCount / totalTests) : 0;
+    const report = calculateOfficialReadiness();
+    const isExpanded = !!APP.readinessDetailsExpanded;
 
-    // Tested unique questions
-    const testedIds = new Set();
-    APP.testHistory.forEach(t => {
-      if (t.questions) {
-        t.questions.forEach(q => testedIds.add(q.id));
-      }
-    });
-    const coverage = APP.questions.length > 0 ? (testedIds.size / APP.questions.length) : 0;
-
-    // Pending doubts resolution
-    const pendingDoubts = Object.keys(APP.mistakesBank).length;
-    const doubtsResolution = (testedIds.size > 0) ? Math.max(0, 1 - (pendingDoubts / Math.max(testedIds.size, 1))) : 1;
-
-    // Official 50Q simulations volume (Target: 5 complete official exams)
-    const officialTests = APP.testHistory.filter(t => t.totalQ === 50).length;
-    const simRatio = Math.min(1, officialTests / 5);
-
-    // Weighted index: 25% simulations volume, 35% pass rate (corte 16 netos), 20% coverage, 20% doubts resolution
-    const rawIndex = (simRatio * 0.25) + (passRate * 0.35) + (coverage * 0.20) + (doubtsResolution * 0.20);
-    const scorePct = Math.round(rawIndex * 100);
-
-    let statusText = 'NIVEL INICIAL';
-    let statusColor = 'var(--err)';
-    let statusBg = 'var(--err-bg)';
-    let statusBorder = 'var(--err-border)';
-
-    if (scorePct >= 85) {
-      statusText = 'PREPARACIÓN EXCELENTE';
-      statusColor = 'var(--accent)';
-      statusBg = 'var(--accent-subtle)';
-      statusBorder = 'var(--accent-border)';
-    } else if (scorePct >= 65) {
-      statusText = 'CANDIDATO APTO (CORTE SUPERADO)';
-      statusColor = 'var(--ok)';
-      statusBg = 'var(--ok-bg)';
-      statusBorder = 'var(--ok-border)';
-    } else if (scorePct >= 35) {
-      statusText = 'EN PREPARACIÓN ACTIVA';
-      statusColor = 'var(--warn)';
-      statusBg = 'var(--warn-bg)';
-      statusBorder = 'var(--warn-border)';
-    }
+    const p1 = report.pillars.simulations;
+    const p2 = report.pillars.passCutoff;
+    const p3 = report.pillars.topicCoverage;
+    const p4 = report.pillars.masteryDoubts;
 
     container.innerHTML = `
       <div class="readiness-card">
         <div class="readiness-header">
           <div>
             <div style="font-size:1.15rem; font-weight:800; color:var(--text-pure); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <span>Indicador de Preparación</span>
-              <span class="readiness-badge mono" style="background:${statusBg}; color:${statusColor}; border-color:${statusBorder}; display:inline-flex; align-items:center; gap:8px;">
-                <span class="pulse-dot ${scorePct >= 65 ? '' : (scorePct >= 35 ? 'warn' : 'err')}"></span>
-                <span>${statusText}</span>
+              <span>Indicador de Preparación Oficial UMU</span>
+              <span class="readiness-badge mono" style="background:${report.statusBg}; color:${report.statusColor}; border-color:${report.statusBorder}; display:inline-flex; align-items:center; gap:8px;">
+                <span class="pulse-dot ${report.scorePct >= 65 ? '' : (report.scorePct >= 35 ? 'warn' : 'err')}"></span>
+                <span>${report.statusText}</span>
               </span>
             </div>
             <p style="font-size:0.86rem; color:var(--text-muted); margin:4px 0 0 0;">
-              Simulacros completados, tasa de aprobados, cobertura y resolución de dudas.
+              Diagnóstico ponderado de aptitud oficial UMU (corte ≥ 16 netos, 60 min, temario T1-T4).
             </p>
           </div>
-          <div class="mono" style="font-size:2rem; font-weight:800; color:${statusColor};">
-            ${scorePct}%
+          <div style="display:flex; align-items:center; gap:16px;">
+            <div class="mono" style="font-size:2.2rem; font-weight:800; color:${report.statusColor}; line-height:1;">
+              ${report.scorePct}%
+            </div>
           </div>
         </div>
 
-        <div class="quiz-progress-track" style="margin-bottom:18px; height:8px; border-radius:4px; overflow:hidden;">
-          <div class="quiz-progress-fill" style="width:${scorePct}%; background:${statusColor};"></div>
+        <!-- Master Progress Track -->
+        <div class="quiz-progress-track" style="margin-bottom:14px; height:8px; border-radius:4px; overflow:hidden;">
+          <div class="quiz-progress-fill" style="width:${report.scorePct}%; background:${report.statusColor}; transition:width 0.4s ease;"></div>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px;">
-            <div class="mono" style="font-size:0.72rem; color:var(--text-dim); margin-bottom:2px;">SIMULACROS (50Q)</div>
-            <div class="mono" style="font-size:1.05rem; font-weight:700; color:var(--text-pure);">${officialTests} / 5 objetivo</div>
-            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">${Math.round(simRatio * 100)}% consolidado</div>
+        <!-- 4 Pillars Grid -->
+        <div class="readiness-pillars-grid">
+          <!-- Pilar 1 -->
+          <div class="readiness-pillar-card">
+            <div>
+              <div class="readiness-pillar-top">
+                <span class="readiness-pillar-title">1. Simulacros (50Q)</span>
+                <span class="readiness-pillar-score">${p1.achievedPct} / 25%</span>
+              </div>
+              <div class="readiness-pillar-main">${p1.completed50Q} / 5 obj</div>
+              <div class="readiness-pillar-sub">${p1.stabilityBonus ? 'Consistencia alta ✓' : (p1.completed50Q > 0 ? `${Math.round(p1.score * 100)}% consolidado` : 'Sin simulacros oficiales')}</div>
+            </div>
+            <div class="readiness-pillar-track">
+              <div class="readiness-pillar-fill" style="width:${Math.round(p1.score * 100)}%; background:var(--accent);"></div>
+            </div>
           </div>
 
-          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px;">
-            <div class="mono" style="font-size:0.72rem; color:var(--text-dim); margin-bottom:2px;">TASA APROBADOS (≥16)</div>
-            <div class="mono" style="font-size:1.05rem; font-weight:700; color:${passRate >= 0.5 ? 'var(--ok)' : 'var(--err)'};">${Math.round(passRate * 100)}%</div>
-            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">${passCount} de ${totalTests} exámenes</div>
+          <!-- Pilar 2 -->
+          <div class="readiness-pillar-card">
+            <div>
+              <div class="readiness-pillar-top">
+                <span class="readiness-pillar-title">2. Corte (≥16 Netos)</span>
+                <span class="readiness-pillar-score">${p2.achievedPct} / 35%</span>
+              </div>
+              <div class="readiness-pillar-main" style="color:${p2.passRatePct >= 50 ? 'var(--ok)' : (p2.totalTests > 0 ? 'var(--err)' : 'var(--text-pure)')};">${p2.passRatePct}% aprobados</div>
+              <div class="readiness-pillar-sub">${p2.totalTests > 0 ? `Media: ${p2.avgNetPoints} netos (${p2.bufferAbove16 >= 0 ? '+' : ''}${p2.bufferAbove16})` : 'Requiere tests'}</div>
+            </div>
+            <div class="readiness-pillar-track">
+              <div class="readiness-pillar-fill" style="width:${Math.round(p2.score * 100)}%; background:${p2.passRatePct >= 50 ? 'var(--ok)' : 'var(--err)'};"></div>
+            </div>
           </div>
 
-          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px;">
-            <div class="mono" style="font-size:0.72rem; color:var(--text-dim); margin-bottom:2px;">COBERTURA BANCO</div>
-            <div class="mono" style="font-size:1.05rem; font-weight:700; color:var(--text-pure);">${testedIds.size} / ${APP.questions.length}</div>
-            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">${Math.round(coverage * 100)}% del temario visto</div>
+          <!-- Pilar 3 -->
+          <div class="readiness-pillar-card">
+            <div>
+              <div class="readiness-pillar-top">
+                <span class="readiness-pillar-title">3. Temario Oficial</span>
+                <span class="readiness-pillar-score">${p3.achievedPct} / 20%</span>
+              </div>
+              <div class="readiness-pillar-main">${Math.round(p3.score * 100)}% cobertura</div>
+              <div class="readiness-pillar-sub">Más débil: <strong>${p3.weakestOfficialTopic}</strong> (${p3.topics[p3.weakestOfficialTopic]?.weightPct}% peso)</div>
+            </div>
+            <div class="readiness-pillar-track">
+              <div class="readiness-pillar-fill" style="width:${Math.round(p3.score * 100)}%; background:var(--warn);"></div>
+            </div>
           </div>
 
-          <div style="background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px;">
-            <div class="mono" style="font-size:0.72rem; color:var(--text-dim); margin-bottom:2px;">PILA DE FALLOS</div>
-            <div class="mono" style="font-size:1.05rem; font-weight:700; color:${pendingDoubts === 0 ? 'var(--ok)' : 'var(--err)'};">${pendingDoubts} pendientes</div>
-            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">${pendingDoubts === 0 ? 'Pila al día ✓' : 'Requiere aclaración'}</div>
+          <!-- Pilar 4 -->
+          <div class="readiness-pillar-card">
+            <div>
+              <div class="readiness-pillar-top">
+                <span class="readiness-pillar-title">4. Retención & Fallos</span>
+                <span class="readiness-pillar-score">${p4.achievedPct} / 20%</span>
+              </div>
+              <div class="readiness-pillar-main" style="color:${p4.pendingDoubts === 0 ? 'var(--ok)' : 'var(--warn)'};">${p4.masteredCount} dominadas</div>
+              <div class="readiness-pillar-sub">${p4.pendingDoubts} dudas (${p4.criticalDoubts} reincidentes)</div>
+            </div>
+            <div class="readiness-pillar-track">
+              <div class="readiness-pillar-fill" style="width:${Math.round(p4.score * 100)}%; background:${p4.criticalDoubts === 0 ? 'var(--ok)' : 'var(--err)'};"></div>
+            </div>
           </div>
         </div>
+
+        <!-- Toggle Button for Expandable Academic Audit -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:10px;">
+          <button type="button" class="act-btn-pro" id="btn-readiness-details-toggle" style="padding:6px 14px; font-size:0.82rem; gap:6px;">
+            <span>${isExpanded ? 'Ocultar Auditoría de Cátedra ▲' : 'Ver Desglose y Recomendaciones de Cátedra ▼'}</span>
+          </button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Acción Sugerida:</span>
+            <button type="button" class="act-btn-pro primary" id="btn-readiness-cta" style="padding:6px 14px; font-size:0.82rem;">
+              ${report.nextAction.label} →
+            </button>
+          </div>
+        </div>
+
+        <!-- Expandable Details Drawer -->
+        ${isExpanded ? `
+          <div class="readiness-details-drawer">
+            <!-- Verdict Box -->
+            <div class="readiness-verdict-box">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); text-transform:uppercase;">Dictamen Pedagógico Automatizado:</span>
+              </div>
+              <div style="font-size:0.9rem; color:var(--text-pure); line-height:1.5; margin-bottom:6px;">
+                ${report.verdict}
+              </div>
+              <div style="font-size:0.84rem; color:var(--text-muted); line-height:1.45;">
+                📌 <strong>Plan de Acción:</strong> ${report.recommendation}
+              </div>
+            </div>
+
+            <!-- Detailed Breakdown by UMU Official Topics (T1 - T4) -->
+            <div>
+              <div class="mono" style="font-size:0.78rem; font-weight:700; color:var(--text-dim); margin-bottom:8px; text-transform:uppercase;">
+                Cobertura Ponderada por Bloques Oficiales en Examen (50Q):
+              </div>
+              <div class="readiness-topic-breakdown">
+                ${['T1', 'T2', 'T3', 'T4'].map(topKey => {
+                  const t = p3.topics[topKey] || { tested: 0, total: 1, covPct: 0, weightPct: 0 };
+                  const nameMap = {
+                    T1: 'Intro SSOO (8Q)',
+                    T2: 'Procesos y Concurrencia (20Q)',
+                    T3: 'Memoria (6Q)',
+                    T4: 'E/S y Ficheros (16Q)'
+                  };
+                  return `
+                    <div class="readiness-topic-row">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="mono" style="font-size:0.8rem; font-weight:700; color:var(--text-pure);">${topKey}: ${nameMap[topKey] || topKey}</span>
+                        <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent);">${t.weightPct}% examen</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-muted);">
+                        <span>${t.tested} de ${t.total} preguntas</span>
+                        <span class="mono" style="font-weight:700; color:${t.covPct >= 60 ? 'var(--ok)' : (t.covPct >= 30 ? 'var(--warn)' : 'var(--err)')};">${t.covPct}%</span>
+                      </div>
+                      <div class="readiness-pillar-track" style="margin-top:2px;">
+                        <div class="readiness-pillar-fill" style="width:${t.covPct}%; background:${t.covPct >= 60 ? 'var(--ok)' : (t.covPct >= 30 ? 'var(--warn)' : 'var(--err)')};"></div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
+
+    // Wire Details Toggle
+    const btnToggle = document.getElementById('btn-readiness-details-toggle');
+    if (btnToggle) {
+      btnToggle.onclick = function () {
+        AUDIO.playClick();
+        APP.readinessDetailsExpanded = !APP.readinessDetailsExpanded;
+        updateReadinessIndicator();
+      };
+    }
+
+    // Wire CTA Action
+    const btnCta = document.getElementById('btn-readiness-cta');
+    if (btnCta) {
+      btnCta.onclick = function () {
+        executeReadinessAction(report.nextAction.type, report.nextAction.topic);
+      };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -6073,6 +6444,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
   // ── Global Interface for inline event handlers ────────────────────
   window.ISO_STUDIO = {
+    _APP: APP,
     startOfficialQuiz: startOfficialQuiz,
     startHistoricalExam: startHistoricalExam,
     startTopicTest: startTopicQuiz,
@@ -6089,6 +6461,9 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     switchView: switchView,
     switchSubtab: switchSubtab,
     showCustomConfirm: showCustomConfirm,
+    getOfficialReadinessReport: calculateOfficialReadiness,
+    renderReadinessIndicator: updateReadinessIndicator,
+    executeReadinessAction: executeReadinessAction,
     exportBackupData: exportBackupData,
     runDataAudit: runDataAudit,
     learning: LEARNING_ENGINE,

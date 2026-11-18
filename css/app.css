@@ -756,6 +756,133 @@ svg[fill="currentColor"], svg.fill-current {
   border: 1px solid var(--border);
 }
 
+.readiness-pillars-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  gap: 12px !important;
+  margin-top: 14px !important;
+}
+
+.readiness-pillar-card {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 14px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: all 0.16s ease !important;
+}
+
+[data-theme="light"] .readiness-pillar-card {
+  background: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+}
+
+.readiness-pillar-card:hover {
+  border-color: var(--border-light) !important;
+  transform: translateY(-1px) !important;
+}
+
+.readiness-pillar-top {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 6px !important;
+}
+
+.readiness-pillar-title {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.readiness-pillar-score {
+  font-size: 0.8rem !important;
+  font-weight: 800 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  color: var(--accent) !important;
+}
+
+.readiness-pillar-main {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: var(--text-pure) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  margin-bottom: 4px !important;
+}
+
+.readiness-pillar-sub {
+  font-size: 0.76rem !important;
+  color: var(--text-muted) !important;
+  line-height: 1.4 !important;
+}
+
+.readiness-pillar-track {
+  height: 4px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+  margin-top: 10px !important;
+}
+
+[data-theme="light"] .readiness-pillar-track {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+.readiness-pillar-fill {
+  height: 100% !important;
+  border-radius: 2px !important;
+  transition: width 0.35s ease !important;
+}
+
+.readiness-details-drawer {
+  margin-top: 18px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid var(--border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  animation: viewSlideUp 0.2s ease-out forwards !important;
+}
+
+.readiness-verdict-box {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid var(--border) !important;
+  border-left: 4px solid var(--accent) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 14px 18px !important;
+}
+
+[data-theme="light"] .readiness-verdict-box {
+  background: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  border-left-color: var(--accent) !important;
+}
+
+.readiness-topic-breakdown {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.readiness-topic-row {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+[data-theme="light"] .readiness-topic-row {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    SISTEMA DE COMPONENTES REUTILIZABLES (SaaS DESIGN)
    ═══════════════════════════════════════════════════════════════════ */

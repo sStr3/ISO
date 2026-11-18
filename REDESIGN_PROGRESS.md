@@ -135,7 +135,7 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
 - [x] **FASE 5 — SESIÓN INTELIGENTE (MÓDULO B):** (Completada). Motor de selección equilibrada (repasos vencidos, temas débiles, preguntas poco practicadas, nuevas) para 10, 20 o 30 preguntas con Modo Tutor guiado y cronometrado.
 - [x] **FASE 6 — MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES (MÓDULOS C Y D):** (Completada). Cálculo riguroso de maestría (40% cobertura + 60% retención SM-2), taxonomía cognitiva de 5 categorías de fallo, dictamen pedagógico automatizado y práctica de rescate focalizada.
 - [x] **FASE 7 — MARCADORES, NOTAS Y FAVORITOS (MÓDULO E):** (Completada). Anotaciones personales desacopladas de questions.js con auto-expansión nativa de textareas (field-sizing: content per modern-web-guidance), selección declarativa con :has(), atajos en examen (* y N), y lanzador de práctica de favoritos.
-- [ ] **FASE 8 — INDICADOR DE PREPARACIÓN OFICIAL (MÓDULO F):** Modelo transparente de diagnóstico de preparación para el examen oficial sin inventar probabilidades ficticias.
+- [x] **FASE 8 — INDICADOR DE PREPARACIÓN OFICIAL (MÓDULO F):** (Completada). Diagnóstico transparente y riguroso de aptitud oficial UMU estructurado en 4 pilares ponderados (Simulacros 25%, Solidez sobre el Corte 35%, Cobertura Curricular Ponderada T1-T4 20%, Retención SM-2 y Saneamiento de Fallos 20%), dictamen pedagógico automatizado y llamadas a la acción en 1 clic.
 - [ ] **FASE 9 — VALIDACIÓN Y CONTROL DE REGRESIÓN:** Suite de pruebas automatizadas sobre integridad de los 358 ítems, persistencia, fórmulas de nota y responsive design.
 
 ---
@@ -536,5 +536,66 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
   - `bank_notes_dark.png`
   - `quiz_notes_dark.png`
 - Sintaxis JavaScript verificada con `node -c ISO/js/app.js` (0 errores).
+
+---
+
+## 11. FASE 8 IMPLEMENTADA — MÓDULO F: INDICADOR DE PREPARACIÓN OFICIAL UMU
+
+> **Fecha:** 18 de noviembre de 2026  
+> **Estado:** COMPLETADO AL 100% CON ÉXITO  
+
+### 11.1 Arquitectura Académica y Rigor Matemático (4 Pilares Ponderados)
+El nuevo Indicador de Preparación Oficial UMU sustituye los porcentajes arbitrarios por una métrica académica multicriterio basada estrictamente en la normativa oficial de examen de Introducción a los Sistemas Operativos (50 preguntas, 60 minutos, aciertos +1.0, errores -1.0, corte $\ge 16$ netos):
+
+1. **Pilar 1: Volumen y Regularidad en Simulacros (25% del total):**
+   - Evalúa el entrenamiento en condiciones de examen real (50Q con reloj de 60m).
+   - Target curricular: 5 simulacros completados.
+   - Puntuación base proporcional ($min(N, 5) / 5 \times 0.85$).
+   - Bono de consistencia (+0.15): se otorga cuando el estudiante ha completado $\ge 3$ simulacros y su dispersión típica entre netos es baja ($\sigma < 1.2$).
+2. **Pilar 2: Solidez sobre el Corte Oficial UMU (35% del total):**
+   - Ponderación más relevante del diagnóstico: analiza si las notas superan de forma consistente los 16 puntos netos ($\ge 5.0$ / 10).
+   - Componente A (70%): Tasa de aprobados en simulacros ($\ge 16$ netos).
+   - Componente B (30%): Colchón de seguridad (*safety margin*). Mide el margen de puntos netos sobre 16 (máximo en +10 netos, i.e. 26 netos).
+3. **Pilar 3: Cobertura Ponderada Curricular (20% del total):**
+   - No trata todos los temas por igual, sino que pondera según el peso exacto de cada bloque en el examen oficial:
+     - **T1: Introducción a los SSOO:** 8Q (16% examen).
+     - **T2: Procesos, Hilos y Concurrencia:** 20Q (40% examen, bloque nuclear).
+     - **T3: Gestión de Memoria:** 6Q (12% examen).
+     - **T4: Entrada/Salida y Sistema de Ficheros:** 16Q (32% examen, bloque nuclear).
+   - Fórmula: $S_3 = 0.16 \cdot Cov(T_1) + 0.40 \cdot Cov(T_2) + 0.12 \cdot Cov(T_3) + 0.32 \cdot Cov(T_4)$.
+4. **Pilar 4: Retención SM-2 y Saneamiento de Fallos (20% del total):**
+   - Evalúa la estabilidad de la memoria a largo plazo.
+   - Proporción de preguntas dominadas ($\ge 14$ días de intervalo SM-2) respecto a las preguntas practicadas ($0.7 \times R_{mastered}$).
+   - Saneamiento del banco de errores: penalización por dudas activas pendientes y penalización severa por dudas reincidentes ($\ge 2$ fallos).
+
+### 11.2 Interfaz de Usuario y Auditoría Desplegable
+- **Tarjeta Master (`.readiness-card`):**
+  - Gran medidor porcentual reactivo (0% a 100%) con código de color dinámico (Rojo $\to$ Amarillo $\to$ Verde).
+  - Barra superior de progreso con micro-animaciones CSS.
+  - Insignia de estado pedagógico:
+    - `< 35%`: *🔴 NIVEL INICIAL*
+    - `35% - 64%`: *🟡 EN PREPARACIÓN ACTIVA*
+    - `65% - 84%`: *🟢 APTO PROBABLE (CORTE SUPERADO)*
+    - `≥ 85%`: *⭐ PREPARACIÓN SOBRESALIENTE*
+- **Grid de 4 Pilares (`.readiness-pillars-grid`):**
+  - Tarjetas individuales con puntuación ponderada alcanzada (`X / 25%`, `X / 35%`, `X / 20%`, `X / 20%`), métrica clave y barra de progreso específica.
+- **Auditoría Desplegable de Cátedra (`#readiness-details-drawer`):**
+  - Desplegable con animación fluida `viewSlideUp` controlado por `#btn-readiness-details-toggle`.
+  - **Dictamen Pedagógico Automatizado:** redacta un análisis cualitativo preciso del estado del estudiante.
+  - **Plan de Acción Recomendado:** directrices claras de estudio prioritario.
+  - **Desglose de Cobertura por Bloques Oficiales (T1 a T4):** barras visuales con el porcentaje de preguntas exploradas de cada bloque y su peso en el examen.
+- **Acción Sugerida en 1 Clic (`#btn-readiness-cta`):**
+  - Botón interactivo que calcula dinámicamente cuál es la acción más urgente del alumno (e.g. *Comenzar Simulacro Oficial (50Q)* si faltan simulacros, *Reforzar T2* si el bloque de procesos está bajo, o *Sanear Fallos Reincidentes* si hay errores acumulados).
+
+### 11.3 Control de Calidad y Pruebas
+- Suite integral de pruebas: **100% de pruebas superadas** (`scratch/test_phase8_full.js`).
+- Suites de regresión integral (Fases 3 a 8): **100% superadas con cero regresiones**.
+- Capturas visuales verificadas en modo oscuro y claro:
+  - `readiness_dashboard_dark.png`
+  - `readiness_dashboard_light.png`
+  - `readiness_drawer_dark.png`
+  - `readiness_drawer_light.png`
+- Sintaxis JavaScript verificada con `node -c ISO/js/app.js` (0 errores).
+
 
 
