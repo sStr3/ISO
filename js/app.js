@@ -45,9 +45,10 @@
     }
   };
 
-  // ── Audio Synthesis Engine (Zero-Dependency Web Audio API) ─────────
+  // ── Audio Synthesis Engine (Enhanced Zero-Latency Web Audio API) ───
   const AUDIO = {
     ctx: null,
+    masterLimiter: null,
     muted: false,
     init() {
       this.muted = localStorage.getItem('iso_sound_muted') === 'true';
@@ -64,7 +65,19 @@
       try {
         if (!this.ctx) {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) this.ctx = new AudioCtx();
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+            // Studio Master Dynamics Compressor/Limiter: prevents digital clipping, provides smooth warmth
+            if (typeof this.ctx.createDynamicsCompressor === 'function') {
+              this.masterLimiter = this.ctx.createDynamicsCompressor();
+              this.masterLimiter.threshold.setValueAtTime(-14, this.ctx.currentTime);
+              this.masterLimiter.knee.setValueAtTime(24, this.ctx.currentTime);
+              this.masterLimiter.ratio.setValueAtTime(10, this.ctx.currentTime);
+              this.masterLimiter.attack.setValueAtTime(0.003, this.ctx.currentTime);
+              this.masterLimiter.release.setValueAtTime(0.2, this.ctx.currentTime);
+              this.masterLimiter.connect(this.ctx.destination);
+            }
+          }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume();
@@ -72,6 +85,9 @@
       } catch (e) {
         console.warn('AudioContext not supported:', e);
       }
+    },
+    getDest() {
+      return this.masterLimiter || (this.ctx ? this.ctx.destination : null);
     },
     toggleMute() {
       this.muted = !this.muted;
@@ -99,120 +115,221 @@
         btn.title = 'Sonido activado (clic para silenciar)';
       }
     },
+
+    // Tactile micro-switch tap (clean, warm, non-fatiguing)
     playClick() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
+        const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(650, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.05);
-      } catch(e) {}
+        osc.frequency.setValueAtTime(340, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.035);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1800, t);
+
+        gain.gain.setValueAtTime(0.065, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.getDest());
+
+        osc.start(t);
+        osc.stop(t + 0.04);
+      } catch (e) {}
     },
+
+    // Warm marimba pop (dual harmonic sine for acoustic warmth)
     playSelect() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(520, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(920, this.ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.08);
-      } catch(e) {}
+        const t = this.ctx.currentTime;
+        // Fundamental (D5 ~587.33 Hz)
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, t);
+        gain1.gain.setValueAtTime(0.09, t);
+        gain1.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+
+        // Warm 2nd harmonic overtone (~1174.66 Hz)
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1174.66, t);
+        gain2.gain.setValueAtTime(0.035, t);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+
+        osc1.connect(gain1);
+        gain1.connect(this.getDest());
+        osc2.connect(gain2);
+        gain2.connect(this.getDest());
+
+        osc1.start(t);
+        osc1.stop(t + 0.09);
+        osc2.start(t);
+        osc2.stop(t + 0.05);
+      } catch (e) {}
     },
+
+    // Silk card swipe transition
     playWhoosh() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
+        const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(280, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.1);
-      } catch(e) {}
+        osc.frequency.setValueAtTime(580, t);
+        osc.frequency.exponentialRampToValueAtTime(160, t + 0.1);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1400, t);
+        filter.frequency.exponentialRampToValueAtTime(280, t + 0.1);
+
+        gain.gain.setValueAtTime(0.045, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.getDest());
+
+        osc.start(t);
+        osc.stop(t + 0.11);
+      } catch (e) {}
     },
+
+    // Triumphant, luminous celebration arpeggio
     playFanfare() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
         const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        const baseT = this.ctx.currentTime;
         notes.forEach((freq, idx) => {
+          const t = baseT + idx * 0.085;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
           osc.type = 'triangle';
-          const start = this.ctx.currentTime + idx * 0.09;
-          osc.frequency.setValueAtTime(freq, start);
-          gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.12, start + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(start);
-          osc.stop(start + 0.45);
+          osc.frequency.setValueAtTime(freq, t);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(3200, t);
+
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(0.11, t + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.getDest());
+
+          osc.start(t);
+          osc.stop(t + 0.48);
         });
-      } catch(e) {}
+      } catch (e) {}
     },
+
+    // Low resonant wooden thud for errors (informative without jarring or buzzing)
     playAlert() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
+        const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(240, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(140, this.ctx.currentTime + 0.22);
-        gain.gain.setValueAtTime(0.065, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.22);
-      } catch(e) {}
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(175, t);
+        osc.frequency.exponentialRampToValueAtTime(105, t + 0.16);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(450, t);
+
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.getDest());
+
+        osc.start(t);
+        osc.stop(t + 0.18);
+      } catch (e) {}
     },
+
+    // Uplifting, warm major chord chime (G5 -> C6 -> E6)
     playSuccess() {
       if (this.muted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       try {
-        const notes = [659.25, 880.00];
-        notes.forEach((freq, idx) => {
+        const baseT = this.ctx.currentTime;
+        const triad = [783.99, 1046.50, 1318.51]; // G5, C6, E6
+        triad.forEach((freq, idx) => {
+          const t = baseT + idx * 0.045;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(2600, t);
+
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(0.08, t + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.getDest());
+
+          osc.start(t);
+          osc.stop(t + 0.35);
+        });
+      } catch (e) {}
+    },
+
+    // Star sparkle for bookmarks and notes
+    playBookmark() {
+      if (this.muted) return;
+      this.ensureCtx();
+      if (!this.ctx) return;
+      try {
+        const t = this.ctx.currentTime;
+        [987.77, 1318.51].forEach((freq, idx) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sine';
-          const start = this.ctx.currentTime + idx * 0.08;
-          osc.frequency.setValueAtTime(freq, start);
-          gain.gain.setValueAtTime(0.08, start);
-          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+          osc.frequency.setValueAtTime(freq, t + idx * 0.04);
+          gain.gain.setValueAtTime(0.06, t + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + idx * 0.04 + 0.2);
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(start);
-          osc.stop(start + 0.16);
+          gain.connect(this.getDest());
+          osc.start(t + idx * 0.04);
+          osc.stop(t + idx * 0.04 + 0.22);
         });
-      } catch(e) {}
+      } catch (e) {}
     }
   };
 
@@ -2952,8 +3069,12 @@
         </div>
 
         <!-- Priority Questions Rows -->
-        ${(mistakes.length > 0 ? mistakes : APP.questions.slice(0, 3)).slice(0, 10).map((q, idx) => {
-          const failTimes = (APP.mistakesBank[q.id] && APP.mistakesBank[q.id].count) || (idx === 0 ? 3 : 2);
+        ${mistakes.length === 0 ? `
+          <div style="padding:28px 16px; text-align:center; color:var(--text-muted); font-size:13px;">
+            ¡Excelente! No tienes preguntas con fallos acumulados en el banco de errores. Completa simulacros o sesiones inteligentes para registrar tus puntos débiles.
+          </div>
+        ` : mistakes.slice(0, 10).map((q) => {
+          const failTimes = (typeof APP.mistakesBank[q.id] === 'number' ? APP.mistakesBank[q.id] : (APP.mistakesBank[q.id]?.count || 1));
           return `
             <div class="figma-table-row">
               <div class="figma-table-left">
@@ -2966,7 +3087,7 @@
               </div>
               <div style="display:flex; align-items:center; gap:10px;">
                 <span class="figma-pill-tag" style="background:#1c2029; font-size:10px;">${q.t || 'T2'}</span>
-                <span class="figma-pill-tag" style="background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.4); color:#ef4444; font-size:10px;">Fallada ${failTimes} veces</span>
+                <span class="figma-pill-tag" style="background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.4); color:#ef4444; font-size:10px;">Fallada ${failTimes} ${failTimes === 1 ? 'vez' : 'veces'}</span>
                 <span class="category-pill" style="display:none;">Confusión Conceptual</span>
                 <button class="btn-figma-card" style="padding:5px 12px; font-size:11px;" onclick="window.ISO_STUDIO.practiceSingleMistake('${q.id}')">Revisar</button>
               </div>
@@ -4321,6 +4442,7 @@
       });
 
       if (isRevealedInTutor) {
+        const ext = generateExtendedExplanation(currentQ);
         html += `
           <div class="tutor-feedback-box ${isCorrect ? 'correct' : 'wrong'}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
@@ -4329,7 +4451,30 @@
               </div>
               <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Registrado en Telemetría y SM-2</span>
             </div>
-            ${currentQ.ex ? `<div style="font-size:0.96rem; color:var(--text-pure); line-height:1.55; margin-bottom:14px;"><strong>Explicación Oficial:</strong> ${escapeHtml(currentQ.ex)}</div>` : ''}
+            ${currentQ.ex ? `<div style="font-size:0.96rem; color:var(--text-pure); line-height:1.55; margin-bottom:12px;"><strong>Explicación Oficial:</strong> ${escapeHtml(currentQ.ex)}</div>` : ''}
+
+            <!-- Tarjeta Pedagógica del Profesor ISO (Guía Wuolah UMU) -->
+            <div class="wuolah-tutor-tip-card" style="margin-top:12px; margin-bottom:16px; background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.22); border-radius:12px; padding:14px 16px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:15px;">💡</span>
+                  <span style="font-size:11px; font-weight:700; color:#60a5fa; letter-spacing:0.5px; text-transform:uppercase;">Profesor ISO · Claves de Examen UMU</span>
+                </div>
+                <span class="mono" style="font-size:10px; padding:2px 7px; border-radius:5px; background:rgba(59,130,246,0.12); color:#93c5fd; border:1px solid rgba(59,130,246,0.25);">${escapeHtml(ext.wuolahRuleTitle || 'Consejo Oficial UMU')}</span>
+              </div>
+              <div style="font-size:13px; color:var(--text-pure); line-height:1.5; margin-bottom:6px;">
+                ${ext.wuolahTip}
+              </div>
+              ${ext.wuolahTrap ? `
+                <div style="font-size:12px; color:#fca5a5; line-height:1.45; padding:6px 10px; background:rgba(239,68,68,0.08); border-radius:6px; border-left:3px solid #ef4444; margin-top:6px;">
+                  <strong style="color:#ef4444;">⚠️ Trampa de examen recurrente:</strong> ${escapeHtml(ext.wuolahTrap)}
+                </div>
+              ` : ''}
+              <div style="font-size:11.5px; color:#94a3b8; margin-top:6px; font-style:italic;">
+                <strong>📌 Regla mnemotécnica:</strong> ${escapeHtml(ext.mnemonicRule)}
+              </div>
+            </div>
+
             <div style="display:flex; justify-content:flex-end; gap:10px;">
               ${idx < quiz.totalQ - 1 ? `
                 <button class="act-btn-pro primary" id="btn-tutor-next" style="padding:10px 22px;">
@@ -4793,6 +4938,17 @@
 
     const scoreVal = Number(result.score);
 
+    // Header subtitle with real exam date, name and elapsed time
+    const subTitleEl = document.getElementById('res-subtitle');
+    if (subTitleEl) {
+      const d = result.date ? new Date(result.date) : new Date();
+      const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      const dateFormatted = `${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const mins = Math.floor((result.timeSpentSec || 0) / 60);
+      const secs = (result.timeSpentSec || 0) % 60;
+      subTitleEl.textContent = `${result.name || 'Simulacro oficial'} · ${dateFormatted} · ${mins}m ${secs}s empleados`;
+    }
+
     // Score display with count-up animation
     const scoreNumEl = document.getElementById('res-score-num');
     if (scoreNumEl) {
@@ -4881,23 +5037,33 @@
     // Populate topic performance bars (Figma Screen 12)
     const topicsList = document.getElementById('res-topics-list');
     if (topicsList) {
-      const topicStats = result.topicStats || {
-        'T1 - Introducción': { correct: 7, total: 8 },
-        'T2 - Memoria': { correct: 12, total: 20 },
-        'T3 - Procesos': { correct: 9, total: 14 },
-        'T4 - E/S y archivos': { correct: 10, total: 14 }
-      };
+      let topicStats = result.topicStats;
+      if (!topicStats || Object.keys(topicStats).length === 0) {
+        topicStats = {};
+        (result.questions || []).forEach((q, idx) => {
+          const tKey = q.t || 'T1';
+          if (!topicStats[tKey]) topicStats[tKey] = { correct: 0, total: 0 };
+          topicStats[tKey].total++;
+          if (result.userAnswers && result.userAnswers[idx] === q.ans) {
+            topicStats[tKey].correct++;
+          }
+        });
+      }
       let tHtml = '';
-      Object.entries(topicStats).forEach(([topName, st]) => {
-        const pct = Math.round((st.correct / st.total) * 100);
+      Object.entries(topicStats).forEach(([topKey, st]) => {
+        const meta = APP.topicMeta[topKey] || { title: topKey, color: '#3b82f6' };
+        const label = topKey.startsWith('T') ? `${topKey} - ${meta.title}` : topKey;
+        const total = st.total || 0;
+        const corr = st.correct || 0;
+        const pct = total > 0 ? Math.round((corr / total) * 100) : 0;
         tHtml += `
           <div>
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span class="mono" style="font-size:12px; color:var(--text-pure);">${topName}</span>
-              <span class="mono" style="font-size:12px; font-weight:700; color:var(--text-dim);">${st.correct} / ${st.total}</span>
+              <span class="mono" style="font-size:12px; color:var(--text-pure);">${escapeHtml(label)}</span>
+              <span class="mono" style="font-size:12px; font-weight:700; color:var(--text-dim);">${corr} / ${total} (${pct}%)</span>
             </div>
             <div class="figma-bar-track" style="height:6px;">
-              <div class="figma-bar-fill" style="width:${pct}%; background:#3b82f6;"></div>
+              <div class="figma-bar-fill" style="width:${pct}%; background:${meta.color || '#3b82f6'};"></div>
             </div>
           </div>
         `;
@@ -5061,7 +5227,11 @@
     let exampleTitle = 'Ejemplo Práctico en UNIX / Código C';
     let codeSnippet = '';
     let mnemonicRule = '';
+    let wuolahRuleTitle = '';
+    let wuolahTip = '';
+    let wuolahTrap = '';
 
+    // 1. FORK & EXEC
     if (qLower.includes('fork') || qLower.includes('exec') || qLower.includes('hijo') || qLower.includes('padre')) {
       conceptTitle = 'Clonación de Procesos vs Reemplazo de Imagen';
       conceptDesc = 'En UNIX, la creación de procesos es un mecanismo en dos fases: <strong>fork()</strong> clona el proceso actual creando un duplicado casi exacto (con un nuevo PID), mientras que <strong>exec()</strong> (o sus variantes execl, execv) reemplaza el espacio de memoria del proceso por un programa completamente nuevo sin cambiar el PID.';
@@ -5071,14 +5241,19 @@
       codeSnippet = `pid_t pid = fork();
 if (pid == 0) {
     // Proceso HIJO: fork() devuelve 0
-    printf("Soy el HIJO (PID: %d). Ejecuto código nuevo con exec()...\n", getpid());
+    printf("Soy el HIJO (PID: %d). Ejecuto código nuevo con exec()...\\n", getpid());
     execlp("/bin/ls", "ls", "-l", NULL);
 } else if (pid > 0) {
     // Proceso PADRE: fork() devuelve el PID del hijo
-    printf("Soy el PADRE (PID: %d), esperando a mi hijo (PID: %d)...\n", getpid(), pid);
+    printf("Soy el PADRE (PID: %d), esperando a mi hijo (PID: %d)...\\n", getpid(), pid);
     wait(NULL); // Espera síncrona
 }`;
       mnemonicRule = 'FORK = Bifurcación (2 procesos idénticos). EXEC = Transformación (1 proceso que cambia de vestimenta).';
+      wuolahRuleTitle = 'T2 · Creación de Procesos (fork vs exec)';
+      wuolahTip = 'fork() clona el proceso actual creando un nuevo proceso con PID distinto (hijo recibe 0 y padre recibe el PID del hijo). exec() NO crea ningún proceso nuevo ni cambia el PID: construye la nueva imagen ejecutable sobre el mismo proceso y, si tiene éxito, NUNCA devuelve nada.';
+      wuolahTrap = 'La trampa de examen más repetida en la UMU es afirmar que exec() crea un proceso o que devuelve 0 al terminar bien. Recuerda: fork() crea proceso nuevo; exec() recicla el proceso existente y nunca retorna si va bien.';
+
+    // 2. HILOS ULT vs KLT
     } else if (qLower.includes('hilo') || qLower.includes('thread') || qLower.includes('ult') || qLower.includes('klt')) {
       conceptTitle = 'Hilos de Usuario (ULT) vs Hilos de Núcleo (KLT)';
       conceptDesc = 'Los hilos a nivel de usuario (User-Level Threads) son gestionados enteramente por una biblioteca en espacio de usuario sin que el kernel del SO sepa de su existencia. Los hilos a nivel de kernel (Kernel-Level Threads) son entidades gestionadas y planificadas por el propio SO.';
@@ -5091,7 +5266,134 @@ if (pid == 0) {
 // KLT (NPTL moderno en Linux):
 // Kernel [ PCB Proceso A -> TCB Hilo 1 (bloqueado) | TCB Hilo 2 (EJECUTANDO EN CPU) ]`;
       mnemonicRule = 'ULT = El Kernel es ciego (1 bloqueo = todos bloqueados). KLT = El Kernel lo ve todo (concurrencia real).';
-    } else if (qLower.includes('semáforo') || qLower.includes('semaforo') || qLower.includes('mutex') || qLower.includes('seccion critica') || qLower.includes('sección crítica')) {
+      wuolahRuleTitle = 'T2 · Hilos de Usuario (ULT) vs Núcleo (KLT)';
+      wuolahTip = 'En ULT, una llamada bloqueante al sistema bloquea al proceso completo; el cambio de hilo se hace sin intervención del SO. En KLT, cada hilo se bloquea de forma independiente y permite ejecutar varios hilos del mismo proceso a la vez en múltiples CPUs/núcleos.';
+      wuolahTrap = 'Afirmar que los hilos de usuario (ULT) permiten solapar E/S y cómputo o paralelismo hardware real. ¡Falso! Solo los hilos de núcleo (KLT) lo permiten.';
+
+    // 3. PLANIFICACIÓN DE CPU
+    } else if (qLower.includes('planifica') || qLower.includes('round robin') || qLower.includes('sjf') || qLower.includes('fcfs') || qLower.includes('srtf') || qLower.includes('quantum') || qLower.includes('convoy') || qLower.includes('inanici')) {
+      conceptTitle = 'Políticas de Planificación de CPU';
+      conceptDesc = 'El planificador decide qué proceso en estado Listo toma la CPU. Las políticas se dividen en no apropiativas (el proceso retiene la CPU hasta terminar o bloquearse) y apropiativas (el SO puede arrebatarle la CPU al agotarse el quantum o al llegar un proceso con mayor prioridad/menor tiempo).';
+      trapTitle = 'Efecto Convoy vs Inanición en el Examen';
+      trapDesc = `La opción errónea ("${escapeHtml(wrongOptText)}") confunde las debilidades de los algoritmos. FCFS no es apropiativo y sufre de efecto convoy. SJF y SRTF sufren de posible inanición (starvation) de procesos largos. Round Robin es apropiativo y equitativo; no sufre inanición.`;
+      exampleTitle = 'Fórmula de Espera en Round Robin';
+      codeSnippet = `// En Round Robin con quantum q y N procesos en cola de listos:
+// Tiempo máximo de espera hasta recuperar la CPU:
+// Espera_máxima <= q * (N - 1)
+// Garantiza que ningún proceso quede desatendido.`;
+      mnemonicRule = 'FCFS = Convoy. SJF/SRTF = Inanición posible. Round Robin = Equidad garantizada (espera <= q*(N-1)).';
+      wuolahRuleTitle = 'T2 · Planificación de CPU (FCFS, SJF, RR)';
+      wuolahTip = 'SJF es no apropiativo; SRTF es su variante apropiativa (el que ejecuta pierde la CPU solo si entra uno nuevo con menos tiempo restante). En Round Robin el tiempo hasta coger la CPU está acotado; la espera tras agotar el quantum es <= q * (N - 1).';
+      wuolahTrap = 'Afirmar que Round Robin sufre de inanición (en RR todos avanzan periódicamente) o que para maximizar la eficiencia conviene un planificador apropiativo (para eficiencia pura sin cambios de contexto es mejor no apropiativo).';
+
+    // 4. ESTADOS DE UN PROCESO Y BCP
+    } else if (qLower.includes('estado') || qLower.includes('bloqueado') || qLower.includes('listo') || qLower.includes('ejecuci') || qLower.includes('bcp') || qLower.includes('tabla de procesos') || qLower.includes('transici')) {
+      conceptTitle = 'Ciclo de Vida del Proceso, Transiciones y BCP';
+      conceptDesc = 'Un proceso se encuentra en uno de 3 estados básicos: Listo (esperando CPU), En Ejecución (en la CPU) o Bloqueado (esperando evento de E/S o sincronización). El BCP (Bloque de Control de Proceso) es la estructura del kernel que almacena su estado completo, registros de CPU, contador de programa y descriptores.';
+      trapTitle = 'La Transición Prohibida: Bloqueado a Ejecución';
+      trapDesc = `La opción trampa ("${escapeHtml(wrongOptText)}") sugiere que un proceso desbloqueado toma inmediatamente la CPU. ¡Nunca! Un proceso desbloqueado pasa OBLIGATORIAMENTE a Listo, y solo pasa a Ejecución cuando el despachador (dispatcher) lo elige según el planificador.`;
+      exampleTitle = 'Estructura del BCP en Memoria del Kernel';
+      codeSnippet = `// BCP (Process Control Block) en memoria de núcleo:
+// [ PID / PPID ] [ Estado: READY | RUNNING | BLOCKED ]
+// [ Registros CPU (PC, SP, Registros generales) al desalojar ]
+// [ Información de Memoria (Tabla de páginas) ]
+// [ Descriptores de Ficheros Abiertos ]
+// ¡El proceso de usuario NO puede modificar su propio BCP!`;
+      mnemonicRule = 'Bloqueado -> Listo -> Ejecución. NUNCA Bloqueado -> Ejecución directo.';
+      wuolahRuleTitle = 'T2 · Estados de Proceso y BCP';
+      wuolahTip = 'Transiciones: Bloqueado -> En ejecución directamente: ¡NUNCA! Un proceso desbloqueado se despierta en el núcleo tras la función que lo bloqueó y continúa su ejecución cuando lo decida el algoritmo de planificación, no inmediatamente.';
+      wuolahTrap = 'Opciones que dicen que el BCP lo puede modificar el proceso en modo usuario o que un proceso desbloqueado obtiene la CPU de inmediato.';
+
+    // 5. ACL vs CAPACIDADES / POSIBILIDADES
+    } else if (qLower.includes('acl') || qLower.includes('posibilidad') || qLower.includes('capacidad') || qLower.includes('matriz de acceso') || qLower.includes('dominio')) {
+      conceptTitle = 'Matriz de Acceso: ACL vs Listas de Posibilidades';
+      conceptDesc = 'La matriz de acceso modela los derechos de los sujetos (dominios/procesos) sobre los objetos (recursos/ficheros). Por columnas se implementa como Listas de Control de Acceso (ACL), asociadas al objeto. Por filas se implementa como Listas de Posibilidades/Capacidades, asociadas al sujeto.';
+      trapTitle = '¿Cuándo se evalúa la ACL en UNIX?';
+      trapDesc = `La trampa recurrente ("${escapeHtml(wrongOptText)}") afirma que cada read() o write() verifica los permisos en la ACL del fichero. ¡Falso! En UNIX la ACL solo se evalúa al invocar open(). Si open() tiene éxito, devuelve un descriptor de fichero que entra a la lista de posibilidades del proceso. Las operaciones posteriores solo consultan la tabla de descriptores.`;
+      exampleTitle = 'Arquitectura Híbrida de UNIX';
+      codeSnippet = `// 1. open("/var/log/syslog", O_RDONLY):
+// -> El SO consulta la ACL del inodo (¿tiene permiso de lectura?).
+// -> Si autoriza: crea entrada en la Tabla de Ficheros Abiertos y asigna fd.
+// 2. read(fd, buffer, 1024):
+// -> El SO verifica el descriptor en la lista de posibilidades del proceso.
+// -> ¡NO vuelve a leer la ACL del disco!`;
+      mnemonicRule = 'Columnas = ACL (en el Objeto). Filas = Posibilidades (en el Proceso). En UNIX: open() mira ACL; read/write miran Posibilidades.';
+      wuolahRuleTitle = 'T3 · Matriz de Acceso (ACL vs Posibilidades)';
+      wuolahTip = 'ACL está asociada a un objeto y dice desde qué dominios se accede; revocación selectiva sencilla. Posibilidades están asociadas al proceso, se pueden copiar/ceder, pero solo existen mientras el proceso se ejecuta. UNIX combina ambas: open() evalúa ACL; lecturas/escrituras posteriores usan la lista de posibilidades del descriptor.';
+      wuolahTrap = 'Preguntas de test que afirman que cada read() comprueba la ACL del archivo. ¡Falso! La ACL solo se evalúa en open().';
+
+    // 6. SETUID, SETGID, PASSWD & /etc/shadow
+    } else if (qLower.includes('setuid') || qLower.includes('setgid') || qLower.includes('shadow') || qLower.includes('salt') || qLower.includes('contrase') || qLower.includes('login') || qLower.includes('rootkit')) {
+      conceptTitle = 'Permisos Especiales UNIX, SETUID y Autenticación';
+      conceptDesc = 'El bit SETUID permite que un programa se ejecute con los privilegios del propietario del archivo ejecutable (EUID) en lugar del usuario que lo lanza (UID). En autenticación, Unix almacena contraseñas en /etc/shadow mediante funciones resumen criptográficas unidireccionales (hash) combinadas con una base aleatoria (salt).';
+      trapTitle = 'SETUID: ¿Pasa la CPU a modo núcleo?';
+      trapDesc = `La trampa estrella de la UMU ("${escapeHtml(wrongOptText)}") afirma que al ejecutar un comando con SETUID de root (como /usr/bin/passwd), el procesador pasa a modo núcleo. ¡Falso! El proceso adopta EUID=0 (root), pero la CPU continúa en MODO USUARIO ejecutando instrucciones de usuario.`;
+      exampleTitle = 'Mecanismo de Salting en /etc/shadow';
+      codeSnippet = `// En /etc/shadow:
+// usuario:$6$salthex$hashcifrado...:19200:0:99999:7:::
+// 1. El salt evita que dos usuarios con la misma contraseña tengan el mismo hash.
+// 2. Impide el uso directo de tablas arcoíris (rainbow tables).
+// 3. Las contraseñas NUNCA se descifran: se hashea la contraseña tecleada y se compara.`;
+      mnemonicRule = 'SETUID = Cambia EUID pero la CPU SIGUE en MODO USUARIO. Contraseñas con Salt = NUNCA se descifran.';
+      wuolahRuleTitle = 'T3 · Permisos UNIX, SETUID y /etc/shadow';
+      wuolahTip = 'SETUID: EUID = propietario del fichero, UID = usuario ejecutor; passwd con SETUID de root se ejecuta con el procesador en modo usuario. En login, /etc/shadow contiene la contraseña con salt; se cifra la introducida y se compara (nunca se descifra). Salt evita que contraseñas iguales den el mismo cifrado.';
+      wuolahTrap = 'Creer que SETUID pone a la CPU en modo núcleo o que el SO descifra la contraseña guardada en /etc/shadow para validarla.';
+
+    // 7. INODO Y SISTEMA DE ARCHIVOS
+    } else if (qLower.includes('inodo') || qLower.includes('nodo-i') || qLower.includes('directorio') || qLower.includes('enlace') || qLower.includes('hard link') || qLower.includes('simbólico') || qLower.includes('fat') || qLower.includes('fichero regular') || qLower.includes('readdir')) {
+      conceptTitle = 'Estructura del Inodo UNIX, Directorios y Enlaces';
+      conceptDesc = 'En UNIX, cada archivo está representado por un inodo (nodo-i) de tamaño fijo en disco. El inodo almacena tamaño, tipo, propietario, permisos, fechas de acceso/modificación, contador de enlaces y punteros a bloques de datos (directos, indirectos simples, dobles y triples).';
+      trapTitle = '¿Dónde reside el nombre del archivo?';
+      trapDesc = `La trampa por excelencia del examen ("${escapeHtml(wrongOptText)}") afirma que el inodo almacena el nombre del fichero. ¡El inodo NUNCA contiene el nombre! Los nombres se almacenan en las entradas de datos de los DIRECTORIOS, asociando cada cadena de texto a un número de inodo. Por eso múltiples nombres (hard links) pueden compartir el mismo inodo.`;
+      exampleTitle = 'Enlaces Físicos (Hard) vs Simbólicos (Soft)';
+      codeSnippet = `// Enlace físico (ln origen hardlink):
+// -> Apunta al MISMO inodo. El contador de enlaces (links count) sube a 2.
+// -> Si borras "origen", los datos no se pierden (links count pasa a 1).
+// Enlace simbólico (ln -s origen softlink):
+// -> Es un FICHERO NUEVO con su propio inodo y tipo 'l'.
+// -> Su bloque de datos contiene la cadena de texto de la ruta al original.
+// -> Ambos tienen contador de enlaces = 1.`;
+      mnemonicRule = 'El Inodo tiene TODO... excepto el NOMBRE (que está en el directorio). Hard link = Mismo inodo. Soft link = Fichero con ruta.';
+      wuolahRuleTitle = 'T4 · Nodos-i, Directorios y Enlaces';
+      wuolahTip = 'El nodo-i es de tamaño fijo y contiene metadatos y punteros; NUNCA el nombre del fichero (está en las entradas de directorio). Enlace físico comparte inodo y aumenta contador de enlaces; enlace simbólico tiene su propio inodo y almacena la ruta (contador de enlaces de ambos vale 1). El número máximo de ficheros depende exclusivamente del número de nodos-i.';
+      wuolahTrap = 'Marcar como verdadero que el inodo almacena el nombre del fichero o que un enlace simbólico es un fichero regular.';
+
+    // 8. ASIGNACIÓN, FRAGMENTACIÓN Y CACHÉ
+    } else if (qLower.includes('fragmentaci') || qLower.includes('asignaci') || qLower.includes('tamaño de bloque') || qLower.includes('partici') || qLower.includes('caché de disco') || qLower.includes('bloque libre')) {
+      conceptTitle = 'Asignación de Bloques, Fragmentación y Caché de Disco';
+      conceptDesc = 'La asignación de bloques determina cómo se sitúan los datos de los ficheros en disco (contigua, lista ligada, FAT o indexada con nodos-i). La caché de disco mantiene bloques en RAM para acelerar lecturas y escrituras tanto de datos como de metadatos.';
+      trapTitle = 'Fragmentación Interna vs Fragmentación Externa';
+      trapDesc = `La opción engañosa ("${escapeHtml(wrongOptText)}") confunde los tipos de fragmentación. La asignación contigua sufre fragmentación externa. Los sistemas de bloques indexados (nodos-i) y listas ligadas sufren fragmentación interna (en el último bloque de cada fichero), pero NUNCA fragmentación externa, ya que cualquier bloque libre puede asignarse a cualquier archivo.`;
+      exampleTitle = 'Cálculo del Bloque de un Byte Z';
+      codeSnippet = `// Tamaño de bloque = B bytes:
+// Número de bloque lógico = Math.floor(Z / B);
+// Desplazamiento dentro del bloque = Z % B;
+// Caché de disco:
+// No se usa LRU puro para evitar graves inconsistencias ante caídas de luz.`;
+      mnemonicRule = 'Asignación Contigua = Frag. EXTERNA. Nodos-i / FAT = Frag. INTERNA (último bloque). Byte Z está en bloque Z/B.';
+      wuolahRuleTitle = 'T4 · Asignación, Fragmentación y Caché';
+      wuolahTip = 'Fragmentación externa: ocurre en asignación contigua, no en nodos-i ni listas. Fragmentación interna: en nodos-i y listas ligadas (en el último bloque). Bloque del byte Z = cociente Z / B. Caché de disco: no usa LRU puro para reducir riesgo de inconsistencia ante fallos de alimentación.';
+      wuolahTrap = 'Afirmar que los sistemas de ficheros con inodos sufren fragmentación externa o que la caché de disco solo almacena datos de usuario (también guarda metadatos).';
+
+    // 9. MECANISMOS HARDWARE & MODOS CPU
+    } else if (qLower.includes('interrup') || qLower.includes('reloj') || qLower.includes('timer') || qLower.includes('modo') || qLower.includes('núcleo') || qLower.includes('nucleo') || qLower.includes('trap') || qLower.includes('syscall') || qLower.includes('controlador de recursos') || qLower.includes('máquina extendida')) {
+      conceptTitle = 'Mecanismos de Control de CPU, Modos y Syscalls';
+      conceptDesc = 'El SO ejerce dos roles: Controlador de Recursos (repartir CPU, memoria y periféricos entre procesos en conflicto) y Máquina Extendida (abstraer el hardware complejo ofreciendo una interfaz de llamadas al sistema). Requiere 3 apoyos hardware ineludibles: modos de ejecución dual, protección de memoria y reloj periódico.';
+      trapTitle = '¿Cómo evitar que un bucle infinito acapare la CPU?';
+      trapDesc = `La trampa clásica ("${escapeHtml(wrongOptText)}") sugiere que la protección de memoria o los modos de CPU impiden el acaparamiento. ¡Falso! Un bucle infinito while(1) en modo usuario no viola ninguna regla de memoria. La ÚNICA forma física de arrebatarle la CPU es mediante las interrupciones periódicas del temporizador (reloj hardware).`;
+      exampleTitle = 'Paso a Modo Núcleo mediante Syscall';
+      codeSnippet = `// Ciclo de una llamada al sistema:
+// 1. Proceso usuario ejecuta 'syscall' -> CPU pasa a MODO NÚCLEO.
+// 2. CPU consulta el Vector de Interrupciones en RAM (no en CPU).
+// 3. Ejecuta la rutina del SO con PID del proceso.
+// 4. Finaliza la llamada y la SIGUIENTE instrucción se ejecuta en MODO USUARIO.`;
+      mnemonicRule = '3 Mecanismos imprescindibles: Modos, Memoria y Reloj. Bucle infinito solo lo frena el RELOJ. Syscall salta vía Vector en RAM.';
+      wuolahRuleTitle = 'T1 · Modos de CPU y Mecanismos Hardware';
+      wuolahTip = 'SO como controlador de recursos: asignación controlada de CPU, memoria y E/S a procesos que compiten. SO como máquina extendida: oculta hardware real y ofrece interfaz amigable. ¿Para qué sirven los modos? Para que un programa no ejecute instrucciones privilegiadas. Para bucles infinitos: el RELOJ periódico. No se puede prescindir de ninguno de los tres mecanismos.';
+      wuolahTrap = 'Afirmar que un proceso puede pasar a modo núcleo por sí mismo con una instrucción cualquiera (solo vía trap/int/syscall dirigidas por el vector en RAM) o que el bash corre en modo núcleo (bash corre en modo usuario).';
+
+    // 10. SINCRONIZACIÓN Y EXCLUSIÓN MUTUA
+    } else if (qLower.includes('semáforo') || qLower.includes('semaforo') || qLower.includes('mutex') || qLower.includes('seccion critica') || qLower.includes('sección crítica') || qLower.includes('concurrencia')) {
       conceptTitle = 'Mecanismos de Sincronización y Exclusión Mutua';
       conceptDesc = 'Un semáforo es una variable entera atómica con dos operaciones indivisibles: wait() (o P), que decrementa el contador y bloquea si el valor resultante es menor que 0; y signal() (o V), que incrementa el contador y despierta a un proceso en espera.';
       trapTitle = 'El Orden de las Operaciones y el Bloqueo Mutuo (Deadlock)';
@@ -5104,6 +5406,11 @@ sem_wait(&mutex); // Entrar a Sección Crítica (decrementa a 0)
 // --- SECCIÓN CRÍTICA (Acceso a variable compartida) ---
 sem_post(&mutex); // Salir de Sección Crítica (incrementa a 1)`;
       mnemonicRule = 'Wait (P) = Prohibir/Pedir llave (resta). Signal (V) = Volver/Devolver llave (suma).';
+      wuolahRuleTitle = 'T5 · Concurrencia y Exclusión Mutua';
+      wuolahTip = 'Para garantizar exclusión mutua sobre un recurso compartido se requiere atomicidad hardware (como test-and-set) o primitivas del SO como semáforos binarios (mutex) inicializados a 1. Ningún proceso fuera de la sección crítica debe bloquear a otros que deseen entrar.';
+      wuolahTrap = 'Opciones que omiten la atomicidad o que afirman que la espera activa (spinlocks) es eficiente en monoprocesadores.';
+
+    // 11. MEMORIA VIRTUAL Y PAGINACIÓN
     } else if (qLower.includes('memoria') || qLower.includes('página') || qLower.includes('pagina') || qLower.includes('tlb') || qLower.includes('segment')) {
       conceptTitle = 'Jerarquía de Memoria y Traducción de Direcciones';
       conceptDesc = 'La paginación divide el espacio lógico en páginas de tamaño fijo y la memoria física en marcos (frames). La traducción la realiza la MMU con ayuda de la TLB (Translation Lookaside Buffer). Si una página referenciada no está en RAM (bit de presencia = 0), la MMU genera una excepción hardware de Fallo de Página.';
@@ -5116,42 +5423,23 @@ sem_post(&mutex); // Salir de Sección Crítica (incrementa a 1)`;
 // 2. Si fallo en TLB -> Consulta tabla de páginas multinivel en RAM.
 // 3. Si bit_validez == 0 -> TRAP: Fallo de Página (el SO carga desde disco swap).`;
       mnemonicRule = 'Página = Tamaño FIJO (Frag. INTERNA). Segmento = Tamaño VARIABLE (Frag. EXTERNA).';
-    } else if (qLower.includes('inodo') || qLower.includes('fichero') || qLower.includes('archivo') || qLower.includes('directorio') || qLower.includes('descriptor') || qLower.includes('pipe') || qLower.includes('tubería')) {
-      conceptTitle = 'Estructura de Ficheros UNIX y Descriptores';
-      conceptDesc = 'En sistemas tipo UNIX, cada archivo está representado por un inodo único en disco. El inodo almacena todos los metadatos: permisos, propietario, tamaño, fechas de acceso/modificación y punteros a bloques de disco (directos, indirectos simples, dobles y triples).';
-      trapTitle = '¿Dónde se guarda el nombre del archivo?';
-      trapDesc = `Una trampa clásica de examen ("${escapeHtml(wrongOptText)}") afirma que el inodo guarda el nombre del fichero. ¡Falso! Los nombres de los ficheros se almacenan en los bloques de datos de los DIRECTORIOS, asociados a su número de inodo. Por eso varios nombres (hard links) pueden apuntar al mismo inodo.`;
-      exampleTitle = 'Estructura de Descriptores y Inodos';
-      codeSnippet = `int fd[2];
-pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
-          // fd[1] = EXTREMO DE ESCRITURA (salida)
+      wuolahRuleTitle = 'T2 · Memoria Virtual y Paginación';
+      wuolahTip = 'La paginación permite que un proceso no necesite memoria física contigua. La tabla de páginas mapea páginas virtuales a marcos físicos de igual tamaño. La fragmentación en paginación es exclusivamente interna en la última página del proceso.';
+      wuolahTrap = 'Afirmar que la paginación sufre fragmentación externa o que el tamaño de página puede variar dinámicamente durante la ejecución del proceso.';
 
-// Inodo en UNIX:
-// [ Permisos (rwxr-xr-x) ] [ UID/GID ] [ Tamaño: 4096 ]
-// [ Punteros Directos: 0..11 ] [ Puntero Indirecto: 12 ]
-// NOTA: ¡El nombre "mi_archivo.txt" NO está aquí, está en el directorio!`;
-      mnemonicRule = 'El Inodo tiene toda la información del archivo... EXCEPTO su nombre (que está en el directorio).';
-    } else if (qLower.includes('interrup') || qLower.includes('reloj') || qLower.includes('timer') || qLower.includes('modo') || qLower.includes('núcleo') || qLower.includes('nucleo') || qLower.includes('trap')) {
-      conceptTitle = 'Mecanismos de Control de la CPU y Protección';
-      conceptDesc = 'El SO recupera el control de la CPU ante eventos síncronos (llamadas al sistema intencionadas y traps por error como división por cero) y asíncronos (interrupciones hardware de periféricos o el reloj del sistema).';
-      trapTitle = '¿Cómo evita el SO que un proceso acapare la CPU?';
-      trapDesc = `La trampa común ("${escapeHtml(wrongOptText)}") sugiere que el modo usuario o la memoria impiden el acaparamiento. La única forma física de arrebatarle la CPU a un bucle infinito es mediante las interrupciones periódicas del temporizador hardware (timer), que fuerzan la ejecución del planificador del SO.`;
-      exampleTitle = 'Ciclo de Interrupción del Temporizador';
-      codeSnippet = `// Cada 10 ms (quantum de tiempo):
-// 1. Reloj hardware envía señal INT a la CPU.
-// 2. CPU guarda contador de programa (PC) y registros del proceso actual.
-// 3. CPU salta a la Rutina de Tratamiento de la Interrupción (RTI) en el kernel.
-// 4. El planificador (Scheduler) decide si desalojar el proceso actual.`;
-      mnemonicRule = 'Solo el RELOJ HARDWARE puede despertar al SO si el proceso está atrapado en un while(1).';
+    // 12. DEFAULT FALLBACK
     } else {
-      conceptTitle = 'Análisis Conceptual';
+      conceptTitle = 'Análisis Conceptual Oficial';
       conceptDesc = `Esta cuestión evalúa la comprensión exacta de: <strong>${escapeHtml(explanationText || correctOptText)}</strong>. La opción [${ansIndex === 0 ? 'A' : 'B'}] es la única estrictamente consistente con el modelo teórico de sistemas operativos.`;
       trapTitle = 'Distinción Clave del Enunciado';
       trapDesc = `La opción contraria ("${escapeHtml(wrongOptText)}") contiene una premisa falsa o matiz engañoso frecuente en las preguntas tipo test de la asignatura.`;
-      exampleTitle = 'Justificación Teórica';
-      codeSnippet = `// Justificación oficial:
+      exampleTitle = 'Justificación Oficial de la Cátedra';
+      codeSnippet = `// Justificación oficial UMU:
 // ${escapeHtml(explanationText || correctOptText)}`;
       mnemonicRule = `Respuesta correcta: [${ansIndex === 0 ? 'A' : 'B'}] -> ${escapeHtml(correctOptText.slice(0, 90))}...`;
+      wuolahRuleTitle = 'Estrategia de Examen UMU (Guía Wuolah)';
+      wuolahTip = 'En el examen oficial UMU un fallo resta un acierto (-1.0). Deja en blanco solo cuando dudes totalmente entre ambas opciones; si puedes descartar una con seguridad, contesta. Desconfía de opciones con términos absolutos («siempre», «nunca», «únicamente»).';
+      wuolahTrap = 'Opciones de examen formuladas con palabras absolutas («siempre», «nunca», «únicamente») suelen ser las falsas.';
     }
 
     return {
@@ -5161,7 +5449,10 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
       trapDesc,
       exampleTitle,
       codeSnippet,
-      mnemonicRule
+      mnemonicRule,
+      wuolahRuleTitle,
+      wuolahTip,
+      wuolahTrap
     };
   }
 
@@ -5413,8 +5704,28 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
         const ext = generateExtendedExplanation(currentQ);
         extContainer.innerHTML = `
           <div class="doubt-extended-badge mono">
-            💡 EXPLICACIÓN EXTENDIDA Y CASOS PRÁCTICOS
+            💡 PROFESOR ISO · CLAVES DE EXAMEN UMU (GUÍA WUOLAH)
           </div>
+
+          <div class="doubt-block-item" style="border-left:3px solid #3b82f6; background:rgba(59,130,246,0.06);">
+            <div class="doubt-block-title" style="color:#60a5fa;">
+              🎯 Clave de Examen UMU: ${escapeHtml(ext.wuolahRuleTitle || 'Regla Oficial UMU')}
+            </div>
+            <div class="doubt-block-text" style="color:var(--text-pure); font-size:0.95rem; line-height:1.6;">
+              ${ext.wuolahTip}
+            </div>
+          </div>
+
+          ${ext.wuolahTrap ? `
+            <div class="doubt-block-item" style="border-left:3px solid #ef4444; background:rgba(239,68,68,0.07);">
+              <div class="doubt-block-title" style="color:#ef4444;">
+                ⚠️ Trampa Recurrente en el Test de la UMU:
+              </div>
+              <div class="doubt-block-text" style="color:#fca5a5; font-size:0.92rem; line-height:1.55;">
+                ${escapeHtml(ext.wuolahTrap)}
+              </div>
+            </div>
+          ` : ''}
 
           <div class="doubt-block-item">
             <div class="doubt-block-title">
@@ -5989,51 +6300,155 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
           <div class="figma-card-panel" style="padding:18px 20px;">
             <div class="figma-card-tag" style="margin-bottom:8px;">ESTADO DE APRENDIZAJE</div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <span class="figma-pill-tag active" style="font-size:11px; padding:3px 10px;">En consolidación</span>
+              ${(() => {
+                const qSt = LEARNING_ENGINE.getState(q.id);
+                const stLabel = qSt.state === 'mastered' ? 'Dominada' : (qSt.state === 'consolidating' ? 'En consolidación' : (qSt.state === 'learning' ? 'En aprendizaje' : 'Nueva'));
+                return `<span class="figma-pill-tag active" style="font-size:11px; padding:3px 10px;">${stLabel}</span>`;
+              })()}
               <span style="font-size:11px; color:var(--text-dim);">Último intervalo: ${intervalStr}</span>
             </div>
           </div>
 
-          <!-- Card 2: Conceptual Diagram (Traducción de direcciones) -->
+          <!-- Card 2: Conceptual Diagram (Adaptativo a Temario UMU) -->
           <div class="figma-card-panel" style="padding:18px 20px;">
-            <div class="figma-card-tag" style="margin-bottom:4px;">Traducción de direcciones</div>
-            <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Dirección virtual</div>
-            <!-- SVG Diagram -->
-            <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
-              <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
-                <!-- Virtual Page -->
-                <rect x="5" y="15" width="60" height="30" rx="4" fill="#1c2029" stroke="#303744" stroke-width="1.5"/>
-                <text x="35" y="34" fill="#94a3b8" font-family="'IBM Plex Mono', monospace" font-size="9" text-anchor="middle">Nº página</text>
-                <!-- Arrow -->
-                <path d="M 75 30 L 105 30 M 100 25 L 105 30 L 100 35" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/>
-                <!-- Page Table / Frame -->
-                <rect x="115" y="10" width="95" height="40" rx="4" fill="#1c2029" stroke="#3b82f6" stroke-width="1.5"/>
-                <text x="162" y="28" fill="#f1f3f5" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">Marco Físico</text>
-                <text x="162" y="42" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">Base + Despl.</text>
-              </svg>
-            </div>
+            ${(() => {
+              if (topKey === 'T1') {
+                return `
+                  <div class="figma-card-tag" style="margin-bottom:4px;">Modos de CPU y Protección</div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Mecanismo Hardware (Núcleo vs Usuario)</div>
+                  <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
+                    <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
+                      <rect x="10" y="15" width="85" height="40" rx="4" fill="#182030" stroke="#2563eb" stroke-width="1.5"/>
+                      <text x="52" y="32" fill="#f1f3f5" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">MODO NÚCLEO</text>
+                      <text x="52" y="46" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">Inst. Privilegiadas</text>
+                      <path d="M 100 35 L 125 35" stroke="#64748b" stroke-width="1.5" stroke-dasharray="2 2"/>
+                      <rect x="130" y="15" width="80" height="40" rx="4" fill="#141720" stroke="#334155" stroke-width="1.5"/>
+                      <text x="170" y="32" fill="#94a3b8" font-family="'IBM Plex Mono', monospace" font-size="9" text-anchor="middle">MODO USUARIO</text>
+                      <text x="170" y="46" fill="#eab308" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">Syscall / Trap ⚡</text>
+                    </svg>
+                  </div>
+                `;
+              } else if (topKey === 'T3') {
+                return `
+                  <div class="figma-card-tag" style="margin-bottom:4px;">Matriz de Acceso</div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Columnas = ACL · Filas = Posibilidades</div>
+                  <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
+                    <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
+                      <rect x="10" y="10" width="90" height="24" rx="4" fill="#1c2029" stroke="#3b82f6" stroke-width="1.2"/>
+                      <text x="55" y="25" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">ACL [Objeto]</text>
+                      <rect x="120" y="10" width="90" height="24" rx="4" fill="#1c2029" stroke="#10b981" stroke-width="1.2"/>
+                      <text x="165" y="25" fill="#34d399" font-family="'IBM Plex Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">Capab. [Proceso]</text>
+                      <path d="M 55 38 L 55 60 L 165 60 L 165 38" stroke="#475569" stroke-width="1.2" stroke-linecap="round"/>
+                      <text x="110" y="55" fill="#94a3b8" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">UNIX: open() → fd</text>
+                    </svg>
+                  </div>
+                `;
+              } else if (topKey === 'T4') {
+                return `
+                  <div class="figma-card-tag" style="margin-bottom:4px;">Estructura del Inodo</div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Metadatos en inodo · Nombres en directorio</div>
+                  <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
+                    <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
+                      <rect x="10" y="10" width="80" height="50" rx="4" fill="#182030" stroke="#3b82f6" stroke-width="1.5"/>
+                      <text x="50" y="26" fill="#f1f3f5" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">INODO (Fijo)</text>
+                      <text x="50" y="38" fill="#94a3b8" font-family="'IBM Plex Mono', monospace" font-size="7" text-anchor="middle">Directos [0..11]</text>
+                      <text x="50" y="50" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="7" text-anchor="middle">BSI / BDI</text>
+                      <path d="M 95 35 L 125 35 M 120 30 L 125 35 L 120 40" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/>
+                      <rect x="130" y="15" width="80" height="40" rx="4" fill="#141720" stroke="#334155" stroke-width="1.2"/>
+                      <text x="170" y="32" fill="#38bdf8" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">Bloque Datos</text>
+                      <text x="170" y="46" fill="#64748b" font-family="'IBM Plex Mono', monospace" font-size="7" text-anchor="middle">¡Sin nombre!</text>
+                    </svg>
+                  </div>
+                `;
+              } else if (topKey === 'T5') {
+                return `
+                  <div class="figma-card-tag" style="margin-bottom:4px;">Exclusión Mutua</div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Semáforo Binario (Mutex = 1)</div>
+                  <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
+                    <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
+                      <rect x="10" y="18" width="55" height="34" rx="4" fill="#1c2029" stroke="#eab308" stroke-width="1.2"/>
+                      <text x="37" y="38" fill="#facc15" font-family="'IBM Plex Mono', monospace" font-size="9" text-anchor="middle">Wait(P)</text>
+                      <path d="M 70 35 L 85 35" stroke="#64748b" stroke-width="1.5"/>
+                      <rect x="90" y="10" width="55" height="50" rx="4" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+                      <text x="117" y="32" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">SECCIÓN</text>
+                      <text x="117" y="45" fill="#f1f3f5" font-family="'IBM Plex Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">CRÍTICA</text>
+                      <path d="M 150 35 L 165 35" stroke="#64748b" stroke-width="1.5"/>
+                      <rect x="170" y="18" width="45" height="34" rx="4" fill="#1c2029" stroke="#10b981" stroke-width="1.2"/>
+                      <text x="192" y="38" fill="#34d399" font-family="'IBM Plex Mono', monospace" font-size="9" text-anchor="middle">Signal</text>
+                    </svg>
+                  </div>
+                `;
+              } else {
+                // Default T2 (Memoria / Paginación)
+                return `
+                  <div class="figma-card-tag" style="margin-bottom:4px;">Traducción de direcciones</div>
+                  <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Dirección virtual (Página → Marco físico)</div>
+                  <div style="background:#13161d; border:1px solid #232733; border-radius:8px; padding:12px; display:flex; justify-content:center;">
+                    <svg viewBox="0 0 220 70" width="220" height="70" fill="none">
+                      <rect x="5" y="15" width="60" height="30" rx="4" fill="#1c2029" stroke="#303744" stroke-width="1.5"/>
+                      <text x="35" y="34" fill="#94a3b8" font-family="'IBM Plex Mono', monospace" font-size="9" text-anchor="middle">Nº página</text>
+                      <path d="M 75 30 L 105 30 M 100 25 L 105 30 L 100 35" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/>
+                      <rect x="115" y="10" width="95" height="40" rx="4" fill="#1c2029" stroke="#3b82f6" stroke-width="1.5"/>
+                      <text x="162" y="28" fill="#f1f3f5" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">Marco Físico</text>
+                      <text x="162" y="42" fill="#60a5fa" font-family="'IBM Plex Mono', monospace" font-size="8" text-anchor="middle">Base + Despl.</text>
+                    </svg>
+                  </div>
+                `;
+              }
+            })()}
           </div>
 
-          <!-- Card 3: Historial de esta pregunta -->
+          <!-- Card 3: Historial Real de esta pregunta (Persistido en localStorage) -->
           <div class="figma-card-panel" style="padding:18px 20px;">
             <div class="figma-card-tag" style="margin-bottom:12px;">Historial de esta pregunta</div>
             <div class="figma-timeline-list">
               <div class="figma-timeline-item">
                 <span class="figma-timeline-date">HOY</span>
-                <span class="figma-timeline-desc">Pendiente de repaso</span>
+                <span class="figma-timeline-desc">Pendiente de repaso (SM-2)</span>
               </div>
-              <div class="figma-timeline-item">
-                <span class="figma-timeline-date">14 NOV</span>
-                <span class="figma-timeline-desc">Acierto · confianza media</span>
-              </div>
-              <div class="figma-timeline-item">
-                <span class="figma-timeline-date">08 NOV</span>
-                <span class="figma-timeline-desc">Acierto · confianza baja</span>
-              </div>
-              <div class="figma-timeline-item">
-                <span class="figma-timeline-date" style="color:#ef4444;">28 OCT</span>
-                <span class="figma-timeline-desc">Fallada</span>
-              </div>
+              ${(() => {
+                const attempts = (APP.answerAttempts || []).filter(a => a.questionId === q.id);
+                const past = [...attempts].reverse().slice(0, 3);
+                const mistakeTimes = APP.mistakesBank[q.id] || 0;
+
+                if (past.length > 0) {
+                  return past.map(att => {
+                    let dateStr = 'Anterior';
+                    if (att.timestamp) {
+                      try {
+                        const d = new Date(att.timestamp);
+                        const months = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+                        const day = String(d.getDate()).padStart(2, '0');
+                        dateStr = `${day} ${months[d.getMonth()]}`;
+                      } catch (e) {
+                        dateStr = 'Anterior';
+                      }
+                    }
+                    const isCorr = att.isCorrect;
+                    const confDesc = att.confidence === 'high' ? 'confianza alta' : (att.confidence === 'low' ? 'confianza baja' : 'confianza normal');
+                    return `
+                      <div class="figma-timeline-item">
+                        <span class="figma-timeline-date" style="${!isCorr ? 'color:#ef4444;' : ''}">${dateStr}</span>
+                        <span class="figma-timeline-desc">${isCorr ? `Acierto · ${confDesc}` : '<span style="color:#ef4444;">Fallada en test</span>'}</span>
+                      </div>
+                    `;
+                  }).join('');
+                } else if (mistakeTimes > 0) {
+                  return `
+                    <div class="figma-timeline-item">
+                      <span class="figma-timeline-date" style="color:#ef4444;">FALLO</span>
+                      <span class="figma-timeline-desc" style="color:#ef4444;">Registrado ${mistakeTimes} ${mistakeTimes === 1 ? 'fallo previo' : 'fallos previos'} en simulacro</span>
+                    </div>
+                  `;
+                } else {
+                  return `
+                    <div class="figma-timeline-item">
+                      <span class="figma-timeline-date">INICIO</span>
+                      <span class="figma-timeline-desc">Sin intentos previos en este navegador</span>
+                    </div>
+                  `;
+                }
+              })()}
             </div>
           </div>
         </div>

@@ -2332,7 +2332,8 @@ body:not([data-active-view="dashboard"]) .workspace-header {
    ═══════════════════════════════════════════════════════════════════ */
 
 #view-quiz {
-  max-width: 960px;
+  max-width: 1240px;
+  width: 100%;
   margin: 0 auto;
 }
 
