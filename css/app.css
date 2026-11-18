@@ -2983,80 +2983,48 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:foc
   border-color: #94A3B8 !important;
 }
 
+/* Header de Tarjeta Temática (Diseño Minimalista con Círculo de Color) */
 .topic-header-bar {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  flex-wrap: wrap !important;
-  gap: 10px !important;
-  margin-bottom: 14px !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
 }
 
-.topic-pill-box {
-  display: flex !important;
+.topic-label-wrap {
+  display: inline-flex !important;
   align-items: center !important;
   gap: 8px !important;
 }
 
-.topic-code-pill {
-  font-size: 0.78rem !important;
-  font-weight: 800 !important;
-  font-family: 'IBM Plex Mono', monospace !important;
-  padding: 4px 10px !important;
-  border-radius: 4px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
+.topic-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+}
+
+.topic-code {
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  color: var(--text-pure) !important;
   letter-spacing: 0.02em !important;
 }
 
-.topic-code-pill.t1-pill { background: rgba(96, 165, 250, 0.16) !important; color: #60A5FA !important; border: 1px solid rgba(96, 165, 250, 0.35) !important; }
-.topic-code-pill.t2-pill { background: rgba(167, 139, 250, 0.16) !important; color: #A78BFA !important; border: 1px solid rgba(167, 139, 250, 0.35) !important; }
-.topic-code-pill.t3-pill { background: rgba(52, 211, 153, 0.16) !important; color: #34D399 !important; border: 1px solid rgba(52, 211, 153, 0.35) !important; }
-.topic-code-pill.t4-pill { background: rgba(251, 191, 36, 0.16) !important; color: #FBBF24 !important; border: 1px solid rgba(251, 191, 36, 0.35) !important; }
-.topic-code-pill.t5-pill { background: rgba(248, 113, 113, 0.16) !important; color: #F87171 !important; border: 1px solid rgba(248, 113, 113, 0.35) !important; }
-.topic-code-pill.t6-pill { background: rgba(148, 163, 184, 0.16) !important; color: #94A3B8 !important; border: 1px solid rgba(148, 163, 184, 0.35) !important; }
-
-[data-theme="light"] .topic-code-pill.t1-pill { background: #DBEAFE !important; color: #1D4ED8 !important; border-color: #93C5FD !important; }
-[data-theme="light"] .topic-code-pill.t2-pill { background: #EDE9FE !important; color: #6D28D9 !important; border-color: #C4B5FD !important; }
-[data-theme="light"] .topic-code-pill.t3-pill { background: #D1FAE5 !important; color: #047857 !important; border-color: #6EE7B7 !important; }
-[data-theme="light"] .topic-code-pill.t4-pill { background: #FEF3C7 !important; color: #B45309 !important; border-color: #FCD34D !important; }
-[data-theme="light"] .topic-code-pill.t5-pill { background: #FEE2E2 !important; color: #B91C1C !important; border-color: #FCA5A5 !important; }
-[data-theme="light"] .topic-code-pill.t6-pill { background: #F1F5F9 !important; color: #334155 !important; border-color: #CBD5E1 !important; }
+[data-theme="light"] .topic-code {
+  color: #000000 !important;
+}
 
 .topic-count-tag {
   font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  color: var(--text-muted) !important;
-}
-
-.topic-weight-badge {
-  font-size: 0.75rem !important;
-  font-weight: 700 !important;
+  font-weight: 500 !important;
   color: var(--text-dim) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-pill) !important;
-  padding: 3px 10px !important;
-  white-space: nowrap !important;
 }
 
-[data-theme="light"] .topic-weight-badge {
-  background: rgba(0, 0, 0, 0.04) !important;
-  color: #1E293B !important;
-  border-color: #CBD5E1 !important;
-}
-
-.topic-weight-badge.featured-weight {
-  color: var(--accent) !important;
-  background: var(--accent-subtle) !important;
-  border-color: var(--accent-border) !important;
-}
-
-[data-theme="light"] .topic-weight-badge.featured-weight {
-  color: #1D4ED8 !important;
-  background: #EFF6FF !important;
-  border-color: #BFDBFE !important;
+[data-theme="light"] .topic-count-tag {
+  color: #64748B !important;
 }
 
 .topic-subtitle {

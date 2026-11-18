@@ -1629,29 +1629,29 @@
     }
 
     let nextAction = {
-      label: 'Iniciar Simulacro Oficial (50Q)',
+      label: 'Comenzar simulacro',
       type: 'official'
     };
 
     if (official50Tests.length < 2) {
       nextAction = {
-        label: 'Comenzar Simulacro Oficial (50Q)',
+        label: 'Comenzar simulacro',
         type: 'official'
       };
     } else if (criticalDoubts > 0) {
       nextAction = {
-        label: `Resolver ${criticalDoubts} Dudas Críticas Reincidentes`,
+        label: `Resolver ${criticalDoubts} dudas pendientes`,
         type: 'doubts'
       };
     } else if (topicStats[weakestOfficialTopic].covPct < 50) {
       nextAction = {
-        label: `Entrenar Tema ${weakestOfficialTopic} (${topicStats[weakestOfficialTopic].weightPct}% en Examen)`,
+        label: `Entrenar Tema ${weakestOfficialTopic}`,
         type: 'topic',
         topic: weakestOfficialTopic
       };
     } else if (pilar4Score < 0.6) {
       nextAction = {
-        label: 'Repaso Espaciado SM-2',
+        label: 'Repaso espaciado',
         type: 'spaced'
       };
     }
@@ -1739,44 +1739,47 @@
     const p3 = report.pillars.topicCoverage;
     const p4 = report.pillars.masteryDoubts;
 
+    const dotColors = {
+      T1: '#3B82F6',
+      T2: '#8B5CF6',
+      T3: '#10B981',
+      T4: '#F59E0B'
+    };
+
     container.innerHTML = `
       <div class="readiness-card">
         <div class="readiness-header">
           <div>
             <div style="font-size:1.15rem; font-weight:800; color:var(--text-pure); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <span>Indicador de Preparación Oficial UMU</span>
-              <span class="readiness-badge mono" style="background:${report.statusBg}; color:${report.statusColor}; border-color:${report.statusBorder}; display:inline-flex; align-items:center; gap:8px;">
-                <span class="pulse-dot ${report.scorePct >= 65 ? '' : (report.scorePct >= 35 ? 'warn' : 'err')}"></span>
-                <span>${report.statusText}</span>
-              </span>
+              <span>Diagnóstico de preparación</span>
             </div>
             <p style="font-size:0.86rem; color:var(--text-muted); margin:4px 0 0 0;">
-              Diagnóstico ponderado de aptitud oficial UMU (corte ≥ 16 netos, 60 min, temario T1-T4).
+              Evaluación continua basada en simulacros, corte (≥16 netos), temario y retención.
             </p>
           </div>
           <div style="display:flex; align-items:center; gap:16px;">
-            <div class="mono" style="font-size:2.2rem; font-weight:800; color:${report.statusColor}; line-height:1;">
+            <div class="mono" style="font-size:2.2rem; font-weight:800; color:var(--text-pure); line-height:1;">
               ${report.scorePct}%
             </div>
           </div>
         </div>
 
-        <!-- Master Progress Track -->
-        <div class="quiz-progress-track" style="margin-bottom:14px; height:8px; border-radius:4px; overflow:hidden;">
-          <div class="quiz-progress-fill" style="width:${report.scorePct}%; background:${report.statusColor}; transition:width 0.4s ease;"></div>
+        <!-- Master Progress Track (Single Accent Color) -->
+        <div class="quiz-progress-track" style="margin-bottom:14px; height:6px; border-radius:3px; overflow:hidden;">
+          <div class="quiz-progress-fill" style="width:${report.scorePct}%; background:var(--accent); transition:width 0.4s ease;"></div>
         </div>
 
-        <!-- 4 Pillars Grid -->
+        <!-- 4 Pillars Grid (Single Accent Progress Bars) -->
         <div class="readiness-pillars-grid">
           <!-- Pilar 1 -->
           <div class="readiness-pillar-card">
             <div>
               <div class="readiness-pillar-top">
-                <span class="readiness-pillar-title">1. Simulacros (50Q)</span>
+                <span class="readiness-pillar-title">1. Simulacros</span>
                 <span class="readiness-pillar-score">${p1.achievedPct} / 25%</span>
               </div>
               <div class="readiness-pillar-main">${p1.completed50Q} / 5 obj</div>
-              <div class="readiness-pillar-sub">${p1.stabilityBonus ? 'Consistencia alta ✓' : (p1.completed50Q > 0 ? `${Math.round(p1.score * 100)}% consolidado` : 'Sin simulacros oficiales')}</div>
+              <div class="readiness-pillar-sub">${p1.stabilityBonus ? 'Consistencia alta ✓' : (p1.completed50Q > 0 ? `${Math.round(p1.score * 100)}% consolidado` : 'Sin simulacros')}</div>
             </div>
             <div class="readiness-pillar-track">
               <div class="readiness-pillar-fill" style="width:${Math.round(p1.score * 100)}%; background:var(--accent);"></div>
@@ -1790,11 +1793,11 @@
                 <span class="readiness-pillar-title">2. Corte (≥16 Netos)</span>
                 <span class="readiness-pillar-score">${p2.achievedPct} / 35%</span>
               </div>
-              <div class="readiness-pillar-main" style="color:${p2.passRatePct >= 50 ? 'var(--ok)' : (p2.totalTests > 0 ? 'var(--err)' : 'var(--text-pure)')};">${p2.passRatePct}% aprobados</div>
+              <div class="readiness-pillar-main">${p2.passRatePct}% aprobados</div>
               <div class="readiness-pillar-sub">${p2.totalTests > 0 ? `Media: ${p2.avgNetPoints} netos (${p2.bufferAbove16 >= 0 ? '+' : ''}${p2.bufferAbove16})` : 'Requiere tests'}</div>
             </div>
             <div class="readiness-pillar-track">
-              <div class="readiness-pillar-fill" style="width:${Math.round(p2.score * 100)}%; background:${p2.passRatePct >= 50 ? 'var(--ok)' : 'var(--err)'};"></div>
+              <div class="readiness-pillar-fill" style="width:${Math.round(p2.score * 100)}%; background:var(--accent);"></div>
             </div>
           </div>
 
@@ -1802,14 +1805,14 @@
           <div class="readiness-pillar-card">
             <div>
               <div class="readiness-pillar-top">
-                <span class="readiness-pillar-title">3. Temario Oficial</span>
+                <span class="readiness-pillar-title">3. Temario</span>
                 <span class="readiness-pillar-score">${p3.achievedPct} / 20%</span>
               </div>
               <div class="readiness-pillar-main">${Math.round(p3.score * 100)}% cobertura</div>
-              <div class="readiness-pillar-sub">Más débil: <strong>${p3.weakestOfficialTopic}</strong> (${p3.topics[p3.weakestOfficialTopic]?.weightPct}% peso)</div>
+              <div class="readiness-pillar-sub">Tema más débil: <strong>${p3.weakestOfficialTopic}</strong></div>
             </div>
             <div class="readiness-pillar-track">
-              <div class="readiness-pillar-fill" style="width:${Math.round(p3.score * 100)}%; background:var(--warn);"></div>
+              <div class="readiness-pillar-fill" style="width:${Math.round(p3.score * 100)}%; background:var(--accent);"></div>
             </div>
           </div>
 
@@ -1817,14 +1820,14 @@
           <div class="readiness-pillar-card">
             <div>
               <div class="readiness-pillar-top">
-                <span class="readiness-pillar-title">4. Retención & Fallos</span>
+                <span class="readiness-pillar-title">4. Retención y fallos</span>
                 <span class="readiness-pillar-score">${p4.achievedPct} / 20%</span>
               </div>
-              <div class="readiness-pillar-main" style="color:${p4.pendingDoubts === 0 ? 'var(--ok)' : 'var(--warn)'};">${p4.masteredCount} dominadas</div>
+              <div class="readiness-pillar-main">${p4.masteredCount} dominadas</div>
               <div class="readiness-pillar-sub">${p4.pendingDoubts} dudas (${p4.criticalDoubts} reincidentes)</div>
             </div>
             <div class="readiness-pillar-track">
-              <div class="readiness-pillar-fill" style="width:${Math.round(p4.score * 100)}%; background:${p4.criticalDoubts === 0 ? 'var(--ok)' : 'var(--err)'};"></div>
+              <div class="readiness-pillar-fill" style="width:${Math.round(p4.score * 100)}%; background:var(--accent);"></div>
             </div>
           </div>
         </div>
@@ -1832,10 +1835,10 @@
         <!-- Toggle Button for Expandable Academic Audit -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:10px;">
           <button type="button" class="act-btn-pro" id="btn-readiness-details-toggle" style="padding:6px 14px; font-size:0.82rem; gap:6px;">
-            <span>${isExpanded ? 'Ocultar Auditoría de Cátedra ▲' : 'Ver Desglose y Recomendaciones de Cátedra ▼'}</span>
+            <span>${isExpanded ? 'Ocultar desglose ▲' : 'Ver desglose por temas ▼'}</span>
           </button>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Acción Sugerida:</span>
+            <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">Acción recomendada:</span>
             <button type="button" class="act-btn-pro primary" id="btn-readiness-cta" style="padding:6px 14px; font-size:0.82rem;">
               ${report.nextAction.label} →
             </button>
@@ -1848,42 +1851,45 @@
             <!-- Verdict Box -->
             <div class="readiness-verdict-box">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); text-transform:uppercase;">Dictamen Pedagógico Automatizado:</span>
+                <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); text-transform:uppercase;">Evaluación:</span>
               </div>
               <div style="font-size:0.9rem; color:var(--text-pure); line-height:1.5; margin-bottom:6px;">
                 ${report.verdict}
               </div>
               <div style="font-size:0.84rem; color:var(--text-muted); line-height:1.45;">
-                📌 <strong>Plan de Acción:</strong> ${report.recommendation}
+                📌 <strong>Recomendación:</strong> ${report.recommendation}
               </div>
             </div>
 
-            <!-- Detailed Breakdown by UMU Official Topics (T1 - T4) -->
+            <!-- Detailed Breakdown by Topics -->
             <div>
               <div class="mono" style="font-size:0.78rem; font-weight:700; color:var(--text-dim); margin-bottom:8px; text-transform:uppercase;">
-                Cobertura Ponderada por Bloques Oficiales en Examen (50Q):
+                Cobertura por bloques temáticos:
               </div>
               <div class="readiness-topic-breakdown">
                 ${['T1', 'T2', 'T3', 'T4'].map(topKey => {
                   const t = p3.topics[topKey] || { tested: 0, total: 1, covPct: 0, weightPct: 0 };
                   const nameMap = {
-                    T1: 'Intro SSOO (8Q)',
-                    T2: 'Procesos y Concurrencia (20Q)',
-                    T3: 'Memoria (6Q)',
-                    T4: 'E/S y Ficheros (16Q)'
+                    T1: 'Introducción a los SSOO',
+                    T2: 'Procesos y concurrencia',
+                    T3: 'Gestión de memoria',
+                    T4: 'E/S y ficheros'
                   };
                   return `
                     <div class="readiness-topic-row">
                       <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="mono" style="font-size:0.8rem; font-weight:700; color:var(--text-pure);">${topKey}: ${nameMap[topKey] || topKey}</span>
-                        <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent);">${t.weightPct}% examen</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                          <span class="topic-dot" style="background-color:${dotColors[topKey]};"></span>
+                          <span class="mono" style="font-size:0.8rem; font-weight:700; color:var(--text-pure);">${topKey}: ${nameMap[topKey] || topKey}</span>
+                        </div>
+                        <span class="mono" style="font-size:0.75rem; color:var(--text-dim);">${t.weightPct}% examen</span>
                       </div>
                       <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-muted);">
                         <span>${t.tested} de ${t.total} preguntas</span>
-                        <span class="mono" style="font-weight:700; color:${t.covPct >= 60 ? 'var(--ok)' : (t.covPct >= 30 ? 'var(--warn)' : 'var(--err)')};">${t.covPct}%</span>
+                        <span class="mono" style="font-weight:700; color:var(--text-pure);">${t.covPct}%</span>
                       </div>
                       <div class="readiness-pillar-track" style="margin-top:2px;">
-                        <div class="readiness-pillar-fill" style="width:${t.covPct}%; background:${t.covPct >= 60 ? 'var(--ok)' : (t.covPct >= 30 ? 'var(--warn)' : 'var(--err)')};"></div>
+                        <div class="readiness-pillar-fill" style="width:${t.covPct}%; background:var(--accent);"></div>
                       </div>
                     </div>
                   `;
@@ -2272,7 +2278,7 @@
             </p>
             <div style="display:inline-flex; gap:12px; flex-wrap:wrap; justify-content:center;">
               <button class="act-btn-pro primary" onclick="window.ISO_STUDIO.startOfficialQuiz()">
-                Iniciar Simulacro Oficial (50Q)
+                Iniciar simulacro
               </button>
               <button class="act-btn-pro" onclick="window.ISO_STUDIO.setErrorsView('mastery')">
                 Ver Mapa de Dominio T1-T6
@@ -2649,10 +2655,10 @@
             <path d="M7 16l4-5 4 3 6-8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <div style="font-weight:700; color:var(--text); font-size:1rem; margin-bottom:4px;">No hay simulacros registrados todavía</div>
-          <div style="font-size:0.84rem; max-width:440px; margin-bottom:16px;">Completa tu primer simulacro oficial de 50 preguntas para visualizar tu curva de aprendizaje y evolución de nota con respecto al aprobado (5.0).</div>
+          <div style="font-size:0.84rem; max-width:440px; margin-bottom:16px;">Completa tu primer simulacro de 50 preguntas para visualizar tu curva de aprendizaje y evolución de nota con respecto al aprobado (5.0).</div>
           <button class="act-btn-pro primary" id="btn-chart-first-test">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Comenzar Simulacro Oficial
+            Comenzar simulacro
           </button>
         </div>
       `;
@@ -2953,7 +2959,7 @@
     shuffleArray(chosen);
 
     setupQuizSession({
-      name: 'Simulacro Oficial ISO (50 Preguntas)',
+      name: 'Simulacro (50 preguntas)',
       questions: chosen,
       isOfficial50: true,
       timeLimitSec: 3600 // 60 minutes
@@ -3223,18 +3229,26 @@
       const estMinutes = Math.max(2, Math.round(SMART_CONFIG.count * (SMART_CONFIG.mode === 'tutor' ? 1.0 : 0.8)));
 
       const topicKeys = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+      const topicColors = {
+        T1: '#3B82F6',
+        T2: '#8B5CF6',
+        T3: '#10B981',
+        T4: '#F59E0B',
+        T5: '#EC4899',
+        T6: '#06B6D4'
+      };
       const topicLabels = {
-        T1: 'T1: Intro SSOO (46Q)',
-        T2: 'T2: Procesos (131Q · 40%)',
-        T3: 'T3: Memoria (35Q)',
-        T4: 'T4: E/S y Ficheros (103Q · 32%)',
-        T5: 'T5: Seguridad (25Q)',
-        T6: 'T6: Distribuidos (18Q)'
+        T1: 'Tema 1 (46Q)',
+        T2: 'Tema 2 (131Q)',
+        T3: 'Tema 3 (35Q)',
+        T4: 'Tema 4 (103Q)',
+        T5: 'Tema 5 (25Q)',
+        T6: 'Tema 6 (18Q)'
       };
 
       let topicsHtml = `
         <button type="button" class="smart-topic-chip ${SMART_CONFIG.topicMode === 'all' ? 'active' : ''}" id="chip-topic-all">
-          ★ Todos los Temas (Automático)
+          Todos los temas
         </button>
       `;
 
@@ -3242,7 +3256,8 @@
         const isSelected = SMART_CONFIG.topicMode === 'custom' && SMART_CONFIG.selectedTopics.has(tKey);
         topicsHtml += `
           <button type="button" class="smart-topic-chip ${isSelected ? 'active' : ''}" data-topic="${tKey}">
-            ${topicLabels[tKey] || tKey}
+            <span class="topic-dot" style="background-color:${topicColors[tKey]};"></span>
+            <span>${topicLabels[tKey] || tKey}</span>
           </button>
         `;
       });
@@ -3254,15 +3269,12 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
             <div>
               <h2 style="font-size:1.35rem; font-weight:800; color:var(--text-pure); margin-bottom:4px;">
-                Sesión Inteligente Adaptativa
+                Sesión Inteligente
               </h2>
               <p style="font-size:0.9rem; color:var(--text-muted); margin:0;">
-                El motor algorítmico equilibra repasos vencidos, tus temas más débiles y preguntas no exploradas para maximizar la retención.
+                Equilibra repasos pendientes, temas con menor dominio y preguntas nuevas para maximizar la retención.
               </p>
             </div>
-            <span class="mono" style="font-size:0.75rem; font-weight:700; color:var(--accent); background:var(--accent-subtle); border:1px solid var(--accent-border); padding:4px 12px; border-radius:var(--radius-pill);">
-              Algoritmo de Aprendizaje Activo
-            </span>
           </div>
 
           <!-- Section 1: Modo de Aprendizaje -->
@@ -3339,33 +3351,33 @@
           <!-- Section 4: Telemetría Predictiva del Algoritmo -->
           <div>
             <div class="smart-section-label">
-              <span>Composición Predictiva del Lote:</span>
+              <span>Composición del Lote:</span>
             </div>
             <div class="smart-preview-grid">
               <div class="smart-preview-card">
-                <div class="smart-preview-val" style="color:var(--accent);">~${telemetry.previewDue}Q</div>
-                <div class="smart-preview-lbl">Repasos Vencidos SM-2</div>
+                <div class="smart-preview-val mono">~${telemetry.previewDue}Q</div>
+                <div class="smart-preview-lbl">Repasos pendientes</div>
               </div>
               <div class="smart-preview-card">
-                <div class="smart-preview-val" style="color:var(--err);">~${telemetry.previewWeak}Q</div>
-                <div class="smart-preview-lbl">Tema Más Débil ([${telemetry.weakestTopic}])</div>
+                <div class="smart-preview-val mono">~${telemetry.previewWeak}Q</div>
+                <div class="smart-preview-lbl">Tema a reforzar ([${telemetry.weakestTopic}])</div>
               </div>
               <div class="smart-preview-card">
-                <div class="smart-preview-val" style="color:var(--warn);">~${telemetry.previewNew}Q</div>
-                <div class="smart-preview-lbl">Nuevas (Ampliación)</div>
+                <div class="smart-preview-val mono">~${telemetry.previewNew}Q</div>
+                <div class="smart-preview-lbl">Preguntas nuevas</div>
               </div>
               <div class="smart-preview-card">
                 <div class="smart-preview-val mono">~${estMinutes} min</div>
-                <div class="smart-preview-lbl">Tiempo Estimado</div>
+                <div class="smart-preview-lbl">Tiempo estimado</div>
               </div>
             </div>
           </div>
 
           <!-- Primary CTA Button -->
           <div>
-            <button class="act-btn-pro primary" id="btn-launch-smart-active" style="width:100%; padding:14px 28px; font-size:1.05rem; justify-content:center;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Iniciar Sesión Inteligente (${SMART_CONFIG.count} Preguntas · ${SMART_CONFIG.mode === 'tutor' ? 'Modo Tutor' : 'Modo Simulacro'})
+            <button class="act-btn-pro primary" id="btn-launch-smart-active" style="width:100%; padding:14px 28px; font-size:1.02rem; justify-content:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Iniciar sesión (${SMART_CONFIG.count} preguntas · ${SMART_CONFIG.mode === 'tutor' ? 'Modo Tutor' : 'Modo Simulacro'})
             </button>
           </div>
         </div>
@@ -4654,7 +4666,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
               Cargar 5 Preguntas a la Pila
             </button>
             <button class="act-btn-pro" onclick="window.ISO_STUDIO.startOfficialQuiz()">
-              Hacer Simulacro Oficial (50Q)
+              Hacer simulacro
             </button>
           </div>
         </div>
@@ -4687,7 +4699,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     const topKey = currentQ.t || 'T1';
     const meta = APP.topicMeta[topKey] || { title: topKey, color: '#8CB1F7' };
     const failCount = APP.mistakesBank[currentQ.id] || 1;
-    const testSource = currentQ.source || 'Simulacro Oficial';
+    const testSource = currentQ.source || 'Simulacro';
 
     let html = `
       <!-- Header Banner -->
