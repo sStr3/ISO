@@ -1,6 +1,6 @@
 # ISO STUDIO 2.0 — REGISTRO DE REDISEÑO Y EVOLUCIÓN TÉCNICA
 
-> **Estado general:** FASE 6 COMPLETADA (Módulos C y D: Mapa de Dominio T1-T6, Centro de Errores con Taxonomía Cognitiva y Diagnóstico Pedagógico Automatizado)  
+> **Estado general:** FASE 7 COMPLETADA (Módulo E: Marcadores, Notas y Favoritos Desacoplados con auto-expansión moderna, atajos de teclado y práctica focalizada)  
 > **Fecha:** 18 de noviembre de 2026  
 > **Equipo:** Senior Frontend Engineer, SaaS UX/UI Designer, Learning Systems Engineer, Data Architect, QA Engineer.
 
@@ -134,7 +134,7 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
 - [x] **FASE 4 — REPETICIÓN ESPACIADA (MÓDULO A):** (Completada). Algoritmo de intervalos (Fallo: 10m; Acierto con duda: 1d; Acierto medio: 3d; Consolidado: 7d; Dominado: 14d), estados de pregunta e interfaz de repaso activo.
 - [x] **FASE 5 — SESIÓN INTELIGENTE (MÓDULO B):** (Completada). Motor de selección equilibrada (repasos vencidos, temas débiles, preguntas poco practicadas, nuevas) para 10, 20 o 30 preguntas con Modo Tutor guiado y cronometrado.
 - [x] **FASE 6 — MAPA DE DOMINIO T1-T6 Y CENTRO DE ERRORES (MÓDULOS C Y D):** (Completada). Cálculo riguroso de maestría (40% cobertura + 60% retención SM-2), taxonomía cognitiva de 5 categorías de fallo, dictamen pedagógico automatizado y práctica de rescate focalizada.
-- [ ] **FASE 7 — MARCADORES, NOTAS Y FAVORITOS (MÓDULO E):** Anotaciones personales desacopladas de `questions.js`.
+- [x] **FASE 7 — MARCADORES, NOTAS Y FAVORITOS (MÓDULO E):** (Completada). Anotaciones personales desacopladas de questions.js con auto-expansión nativa de textareas (field-sizing: content per modern-web-guidance), selección declarativa con :has(), atajos en examen (* y N), y lanzador de práctica de favoritos.
 - [ ] **FASE 8 — INDICADOR DE PREPARACIÓN OFICIAL (MÓDULO F):** Modelo transparente de diagnóstico de preparación para el examen oficial sin inventar probabilidades ficticias.
 - [ ] **FASE 9 — VALIDACIÓN Y CONTROL DE REGRESIÓN:** Suite de pruebas automatizadas sobre integridad de los 358 ítems, persistencia, fórmulas de nota y responsive design.
 
@@ -490,5 +490,51 @@ Para garantizar **compatibilidad 100% hacia atrás**, se mantienen intactas las 
   - `dash_dark.png`
   - `topics_dark.png`
 - Sintaxis JavaScript verificada con `node -c js/app.js` (0 errores).
+
+---
+
+## 10. FASE 7 IMPLEMENTADA — MÓDULO E: MARCADORES, NOTAS Y FAVORITOS DESACOPLADOS
+
+> **Fecha:** 18 de noviembre de 2026  
+> **Estado:** COMPLETADO AL 100% CON ÉXITO  
+
+### 10.1 Estándares y Directrices de Modern Web Guidance Aplicados
+- **Auto-expansión Nativa de Textareas (`form-fields-automatically-fit-contents`):**
+  - Implementación en `.q-note-textarea` con `field-sizing: content; min-block-size: 3lh; max-block-size: 14lh; width: 100%;`. Elimina listeners JS basados en `scrollHeight` y previene saltos de layout (*Layout Shift*).
+- **Reactividad Declarativa con `:has()` (`style-parent-with-has`):**
+  - Resaltado perimetral dorado automático en tarjetas que contienen favoritos activos: `.review-item-card:has(.favorite-star-btn.active) { border-left: 3px solid #F59E0B; }`.
+  - Indicador de nota presente cuando el textarea tiene contenido: `.review-item-card:has(.q-note-textarea:not(:placeholder-shown))`.
+- **Accesibilidad y Notificaciones (`accessibility` y `persistent-toast-notifications`):**
+  - Indicadores con `aria-live="polite"` para confirmaciones sutiles de autoguardado de notas ("*Guardando...*" $\to$ "*Guardado ✓*").
+  - Botones de favoritos con `aria-label="Marcar como favorita"` y estado dinámico `aria-pressed="true|false"`.
+  - Respeto incondicional a `@media (prefers-reduced-motion: reduce)` y feedback háptico táctil en `:active: scale(0.92)` según las reglas de Emil Kowalski.
+
+### 10.2 Modelo de Datos Desacoplado y Persistente
+- **Almacén dedicado:** `localStorage.iso_personal_annotations` (`{ [questionId]: { notes, isFavorite, errorCategory, customTag, updatedAt } }`).
+- Inmutabilidad total de `questions.js` (cero contaminación de los 358 ítems oficiales de cátedra).
+- Autoguardado debounced (350ms) con validación estricta y protección contra desbordamientos.
+- Inclusión automática en el baúl de seguridad y exportación JSON (`exportBackupData`).
+
+### 10.3 Interfaz de Usuario y Flujos de Estudio
+1. **Lienzo de Examen y Modo Tutor (`#view-quiz`):**
+   - Botón directo de estrella (`#quiz-btn-favorite`) en la barra superior de cada pregunta para marcar/desmarcar con 1 clic o tecla `*` / `P`.
+   - Botón de cajón de notas (`#quiz-btn-notes-toggle`) que despliega el editor de notas personales sin pausar el reloj ni cerrar el contexto con tecla `N`.
+   - Autoguardado en tiempo real durante simulacros y sesiones inteligentes con feedback `Guardado ✓`.
+2. **Auditor del Banco de Preguntas (`subtab-admin-bank`):**
+   - Selector de filtro `#bank-status-filter`: nueva opción *"📝 Con Notas Personales"* y filtro *"★ Favoritos"*.
+   - Botón primario de acción rápida: *"★ Practicar Favoritos (N)"* con contador reactivo `#bank-fav-count`.
+   - Buscador universal que localiza preguntas tanto por texto del enunciado como por palabras clave escritas en tus notas personales.
+3. **Dashboard de Rendimiento (`#view-dashboard`):**
+   - Botón contextual de acción rápida *"★ Favoritos (N)"* que aparece automáticamente cuando existen preguntas marcadas, permitiendo lanzar una sesión focalizada en 1 clic.
+4. **Lanzador de Práctica de Favoritos (`startFavoritesQuiz`):**
+   - Genera una sesión personalizada en Modo Tutor con las preguntas favoritas del alumno, explicaciones oficiales inmediatas y retroalimentación interactiva.
+
+### 10.4 Verificación y Control de Calidad
+- Suite integral de pruebas automatizadas: **30/30 pruebas superadas (100%)** (`scratch/test_phase7_full.js`).
+- Suites de regresión integral (Fases 3, 4, 5, 6 y 7): **100% superadas con 0 fallos**.
+- Verificación visual headless en Firefox:
+  - `bank_notes_dark.png`
+  - `quiz_notes_dark.png`
+- Sintaxis JavaScript verificada con `node -c ISO/js/app.js` (0 errores).
 
 

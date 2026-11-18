@@ -708,6 +708,52 @@
       return next;
     },
 
+    isFavorite(questionId) {
+      return Boolean(this.getAnnotation(questionId).isFavorite);
+    },
+
+    setPersonalNote(questionId, text) {
+      return this.setAnnotation(questionId, { notes: text });
+    },
+
+    getPersonalNote(questionId) {
+      return this.getAnnotation(questionId).notes || '';
+    },
+
+    getFavoriteQuestions() {
+      return APP.questions.filter(q => this.isFavorite(q.id));
+    },
+
+    getQuestionsWithNotes() {
+      return APP.questions.filter(q => {
+        const n = (this.getAnnotation(q.id).notes || '').trim();
+        return n.length > 0;
+      });
+    },
+
+    searchPersonalNotes(query) {
+      if (!query || !query.trim()) return [];
+      const qLower = query.toLowerCase().trim();
+      return APP.questions.filter(q => {
+        const notes = (this.getAnnotation(q.id).notes || '').toLowerCase();
+        return notes.includes(qLower);
+      });
+    },
+
+    getAnnotationsStats() {
+      let favCount = 0;
+      let notesCount = 0;
+      for (const ann of Object.values(APP.personalAnnotations)) {
+        if (ann.isFavorite) favCount++;
+        if (ann.notes && ann.notes.trim()) notesCount++;
+      }
+      return {
+        favoritesCount: favCount,
+        notesCount: notesCount,
+        totalQuestions: APP.questions.length
+      };
+    },
+
     getCoverageStats() {
       const total = APP.questions.length;
       const practicedIds = new Set();
@@ -1351,6 +1397,23 @@
     if (cardPending) animateNumberValue(cardPending, 0, mistakeIds.size, 750, 0);
     if (cardNet) animateNumberValue(cardNet, 0, totalNet, 800, 0, totalNet >= 0 ? '+' : '');
     if (cardMastered) cardMastered.textContent = masteredCount + ' / ' + APP.questions.length;
+
+    // Quick Favorites Action in Dashboard
+    const dashFavBtn = document.getElementById('dash-btn-favorites');
+    const dashFavCount = document.getElementById('dash-fav-count');
+    const annStats = LEARNING_ENGINE.getAnnotationsStats();
+    if (dashFavBtn) {
+      if (annStats.favoritesCount > 0) {
+        dashFavBtn.style.display = 'inline-flex';
+        if (dashFavCount) dashFavCount.textContent = annStats.favoritesCount;
+        dashFavBtn.onclick = () => {
+          AUDIO.playClick();
+          startFavoritesQuiz();
+        };
+      } else {
+        dashFavBtn.style.display = 'none';
+      }
+    }
 
     // Render Transparent Academic Readiness Indicator
     updateReadinessIndicator();
@@ -3056,6 +3119,26 @@
     });
   }
 
+  function startFavoritesQuiz() {
+    const favs = LEARNING_ENGINE.getFavoriteQuestions();
+    if (favs.length === 0) {
+      showToast('No tienes preguntas marcadas como favoritas todavía. ¡Marca algunas con la estrella ★!', 'warn');
+      return;
+    }
+    AUDIO.playFanfare();
+    const chosen = [...favs];
+    shuffleArray(chosen);
+
+    setupQuizSession({
+      name: `Práctica de Favoritos (${chosen.length}Q)`,
+      questions: chosen,
+      isOfficial50: false,
+      isTutorMode: true,
+      timeLimitSec: chosen.length * 72
+    });
+    showToast(`Iniciando práctica con ${chosen.length} preguntas favoritas en Modo Tutor`, 'success');
+  }
+
   function setupQuizSession(config) {
     stopQuizTimer();
 
@@ -3267,6 +3350,43 @@
     if (sourceBadge) {
       sourceBadge.textContent = currentQ.source || 'Banco Oficial ISO';
     }
+
+    // Update Quiz Favorite Button (Módulo E)
+    const favBtn = document.getElementById('quiz-btn-favorite');
+    if (favBtn) {
+      const isFav = LEARNING_ENGINE.isFavorite(currentQ.id);
+      favBtn.textContent = isFav ? '★' : '☆';
+      if (isFav) {
+        favBtn.classList.add('active');
+        favBtn.classList.remove('inactive');
+      } else {
+        favBtn.classList.remove('active');
+        favBtn.classList.add('inactive');
+      }
+      favBtn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+      favBtn.setAttribute('title', isFav ? 'Quitar de favoritos (Atajo: *)' : 'Añadir a favoritos (Atajo: *)');
+    }
+
+    // Update Quiz Notes Toggle & Drawer (Módulo E)
+    const notesToggleBtn = document.getElementById('quiz-btn-notes-toggle');
+    const noteArea = document.getElementById('quiz-note-textarea');
+    const noteDrawer = document.getElementById('quiz-note-drawer');
+    const ann = LEARNING_ENGINE.getAnnotation(currentQ.id);
+    const hasNote = Boolean(ann.notes && ann.notes.trim());
+
+    if (notesToggleBtn) {
+      if (hasNote) {
+        notesToggleBtn.classList.add('has-notes');
+      } else {
+        notesToggleBtn.classList.remove('has-notes');
+      }
+      notesToggleBtn.innerHTML = hasNote ? '📝 Nota ✓' : '📝 Nota';
+    }
+    if (noteArea) {
+      noteArea.value = ann.notes || '';
+    }
+    const noteSavedIndicator = document.getElementById('quiz-note-saved');
+    if (noteSavedIndicator) noteSavedIndicator.style.display = 'none';
 
     // Stem text with smooth slide animation
     const stemEl = document.getElementById('quiz-stem-text');
@@ -3486,6 +3606,63 @@
     renderCurrentQuestion();
   }
 
+  function toggleCurrentQuizFavorite() {
+    if (!APP.activeQuiz) return;
+    const currentQ = APP.activeQuiz.questions[APP.activeQuiz.currentIndex];
+    if (!currentQ) return;
+    AUDIO.playClick();
+    const isFav = LEARNING_ENGINE.toggleFavorite(currentQ.id);
+    const favBtn = document.getElementById('quiz-btn-favorite');
+    if (favBtn) {
+      favBtn.textContent = isFav ? '★' : '☆';
+      if (isFav) {
+        favBtn.classList.add('active');
+        favBtn.classList.remove('inactive');
+      } else {
+        favBtn.classList.remove('active');
+        favBtn.classList.add('inactive');
+      }
+      favBtn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+      favBtn.setAttribute('title', isFav ? 'Quitar de favoritos (Atajo: *)' : 'Añadir a favoritos (Atajo: *)');
+    }
+    showToast(isFav ? '★ Pregunta añadida a favoritos' : '☆ Pregunta eliminada de favoritos', 'info');
+  }
+
+  function toggleCurrentQuizNotes() {
+    const drawer = document.getElementById('quiz-note-drawer');
+    const textarea = document.getElementById('quiz-note-textarea');
+    if (!drawer) return;
+    const isHidden = drawer.style.display === 'none';
+    drawer.style.display = isHidden ? 'block' : 'none';
+    if (isHidden && textarea && typeof textarea.focus === 'function') {
+      setTimeout(() => textarea.focus(), 60);
+    }
+  }
+
+  function saveCurrentQuizNote(text) {
+    if (!APP.activeQuiz) return;
+    const currentQ = APP.activeQuiz.questions[APP.activeQuiz.currentIndex];
+    if (!currentQ) return;
+    LEARNING_ENGINE.setPersonalNote(currentQ.id, text);
+    const indicator = document.getElementById('quiz-note-saved');
+    if (indicator) {
+      indicator.style.display = 'inline';
+      setTimeout(() => { if (indicator) indicator.style.display = 'none'; }, 1500);
+    }
+    const notesToggleBtn = document.getElementById('quiz-btn-notes-toggle');
+    const hasNote = Boolean(text && text.trim());
+    if (notesToggleBtn) {
+      if (hasNote) {
+        notesToggleBtn.classList.add('has-notes');
+      } else {
+        notesToggleBtn.classList.remove('has-notes');
+      }
+      notesToggleBtn.innerHTML = hasNote ? '📝 Nota ✓' : '📝 Nota';
+    }
+  }
+
+  const saveCurrentQuizNoteDebounced = debounce(saveCurrentQuizNote, 350);
+
   // ── Keyboard Shortcuts ────────────────────────────────────────────
   function setupKeyboardShortcuts() {
     window.addEventListener('keydown', function (e) {
@@ -3520,6 +3697,12 @@
         } else if (e.key === 'f' || e.key === 'F') {
           e.preventDefault();
           toggleFlagCurrent();
+        } else if (e.key === '*' || e.key === 'p' || e.key === 'P') {
+          e.preventDefault();
+          toggleCurrentQuizFavorite();
+        } else if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          toggleCurrentQuizNotes();
         } else if (e.key === 'ArrowRight') {
           e.preventDefault();
           goToQuestion(APP.activeQuiz.currentIndex + 1);
@@ -4994,6 +5177,7 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
         const isDue = (st.nextReviewDate && new Date(st.nextReviewDate) <= now) || inMistakes;
 
         if (status === 'FAVORITES' && !ann.isFavorite) return false;
+        if (status === 'WITH_NOTES' && (!ann.notes || !ann.notes.trim())) return false;
         if (status === 'MISTAKES' && !inMistakes) return false;
         if (status === 'PENDING' && !isDue) return false;
         if (status === 'LEARNING' && (st.state !== 'learning' || isDue)) return false;
@@ -5010,6 +5194,10 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
       });
 
       if (countBadge) countBadge.textContent = `${filtered.length} de ${APP.questions.length}`;
+      const bankFavCount = document.getElementById('bank-fav-count');
+      if (bankFavCount) {
+        bankFavCount.textContent = LEARNING_ENGINE.getAnnotationsStats().favoritesCount;
+      }
 
       if (container) {
         if (filtered.length === 0) {
@@ -5104,6 +5292,14 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
     if (searchInput) searchInput.oninput = debounce(applyFilter, 180);
     if (topicFilter) topicFilter.onchange = applyFilter;
     if (statusFilter) statusFilter.onchange = applyFilter;
+
+    const btnPracticeFavs = document.getElementById('btn-practice-favorites');
+    if (btnPracticeFavs) {
+      btnPracticeFavs.onclick = () => {
+        AUDIO.playClick();
+        startFavoritesQuiz();
+      };
+    }
 
     applyFilter();
   }
@@ -5305,6 +5501,28 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
 
     const btnFlag = document.getElementById('btn-quiz-flag');
     if (btnFlag) btnFlag.onclick = toggleFlagCurrent;
+
+    // Quiz Favorite & Personal Notes Controls (Módulo E)
+    const quizFavBtn = document.getElementById('quiz-btn-favorite');
+    if (quizFavBtn) {
+      quizFavBtn.onclick = function () {
+        toggleCurrentQuizFavorite();
+      };
+    }
+
+    const quizNotesBtn = document.getElementById('quiz-btn-notes-toggle');
+    if (quizNotesBtn) {
+      quizNotesBtn.onclick = function () {
+        toggleCurrentQuizNotes();
+      };
+    }
+
+    const quizNoteTextarea = document.getElementById('quiz-note-textarea');
+    if (quizNoteTextarea) {
+      quizNoteTextarea.oninput = function () {
+        saveCurrentQuizNoteDebounced(this.value);
+      };
+    }
 
     const btnFinish = document.getElementById('btn-quiz-finish');
     if (btnFinish) btnFinish.onclick = finishQuiz;
@@ -5759,7 +5977,11 @@ pipe(fd); // fd[0] = EXTREMO DE LECTURA (entrada)
       renderErrorsDiagnosis();
       return isFav;
     },
-    startFilteredMistakesTest: startFilteredMistakesQuiz
+    startFilteredMistakesTest: startFilteredMistakesQuiz,
+    startFavoritesQuiz: startFavoritesQuiz,
+    toggleCurrentQuizFavorite: toggleCurrentQuizFavorite,
+    toggleCurrentQuizNotes: toggleCurrentQuizNotes,
+    saveCurrentQuizNote: saveCurrentQuizNote
   };
 
   // Run on DOM Ready

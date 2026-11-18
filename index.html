@@ -930,6 +930,9 @@
               </div>
             </div>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <button class="act-btn-pro" id="dash-btn-favorites" style="display:none; background:rgba(245, 158, 11, 0.12); color:#F59E0B; border:1px solid #F59E0B;">
+                ★ Favoritos (<span id="dash-fav-count">0</span>)
+              </button>
               <button class="act-btn-pro primary" id="dash-btn-smart-session">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                 Sesión Inteligente
@@ -1691,6 +1694,7 @@
               <select id="bank-status-filter" style="width:220px; height:42px; padding:8px 12px; font-family:'IBM Plex Mono', monospace; font-size:0.84rem; border-radius:8px; cursor:pointer; background:var(--surface); border:1px solid var(--border); color:var(--text-pure);">
                 <option value="ALL">Todos los Estados</option>
                 <option value="FAVORITES">★ Favoritos</option>
+                <option value="WITH_NOTES">📝 Con Notas Personales</option>
                 <option value="MISTAKES">⚠️ En Pila de Fallos</option>
                 <option value="PENDING">⏳ Pendientes de Repaso</option>
                 <option value="LEARNING">🟡 En Aprendizaje</option>
@@ -1698,6 +1702,9 @@
                 <option value="MASTERED">🟢 Dominadas</option>
                 <option value="NEW">🌱 Nuevas (Sin intentar)</option>
               </select>
+              <button class="act-btn-pro" id="btn-practice-favorites" style="height:42px; padding:0 16px; font-size:0.86rem; background:rgba(245, 158, 11, 0.12); color:#F59E0B; border:1px solid #F59E0B; cursor:pointer;" title="Lanzar práctica con preguntas favoritas">
+                ★ Practicar Favoritos (<span id="bank-fav-count">0</span>)
+              </button>
             </div>
 
             <div id="bank-questions-container">
@@ -1865,10 +1872,21 @@
                 <span class="q-badge-counter mono" id="quiz-q-counter">PREGUNTA 1 DE 50</span>
                 <span class="topic-tag mono" id="quiz-topic-badge" style="background:var(--surface-raised); border:1px solid var(--border); color:var(--text);">[T2] Procesos</span>
                 <span class="mono" id="quiz-source-badge" style="font-size:0.75rem; color:var(--text-dim);">Examen Oficial</span>
+                <button id="quiz-btn-favorite" class="favorite-star-btn" aria-label="Marcar como favorita" aria-pressed="false" title="Añadir a favoritos (Atajo: *)">☆</button>
+                <button id="quiz-btn-notes-toggle" class="quiz-notes-toggle-btn" aria-label="Notas personales" title="Ver o escribir nota personal (Atajo: N)">📝 Nota</button>
               </div>
               <span class="mono" style="font-size:0.75rem; color:var(--err); background:var(--err-bg); padding:3px 8px; border-radius:4px; border:1px solid var(--err-border);">
                 Fallo: -1.0 | Blanco: 0
               </span>
+            </div>
+
+            <!-- Cajón de Notas Personales en Examen/Tutor (Módulo E) -->
+            <div id="quiz-note-drawer" class="quiz-note-drawer" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span class="mono" style="font-size:0.78rem; font-weight:700; color:var(--text-dim);">📝 NOTA PERSONAL PARA ESTA PREGUNTA:</span>
+                <span class="mono" id="quiz-note-saved" style="font-size:0.75rem; color:var(--ok); display:none;" aria-live="polite">Guardado ✓</span>
+              </div>
+              <textarea id="quiz-note-textarea" class="q-note-textarea" placeholder="Escribe aquí tus apuntes personales, mnemotecnia o detalles a recordar..."></textarea>
             </div>
 
             <!-- Stem text in large bold typography -->
@@ -1882,7 +1900,7 @@
             </div>
 
             <div style="margin-top:20px; font-size:0.8rem; color:var(--text-dim);" class="mono">
-              Atajos de teclado: [1] o [A] Opción A • [2] o [B] Opción B • [Espacio / D] Dejar en blanco • [←] / [→] Navegar • [F] Marcar
+              Atajos de teclado: [1/A] Opción A • [2/B] Opción B • [0/Espacio] En blanco • [←/→] Navegar • [*] Favorito • [N] Nota • [F] Marcar
             </div>
           </div>
 

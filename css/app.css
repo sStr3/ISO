@@ -1991,52 +1991,147 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:foc
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   line-height: 1;
   padding: 4px 6px;
-  border-radius: 4px;
-  transition: transform 0.15s ease, color 0.15s ease;
+  border-radius: 6px;
+  transition: transform 0.18s cubic-bezier(0.23, 1, 0.32, 1), color 0.15s ease, background 0.15s ease;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.favorite-star-btn:hover {
-  transform: scale(1.22);
+@media (hover: hover) and (pointer: fine) {
+  .favorite-star-btn:hover {
+    transform: scale(1.18);
+    background: rgba(245, 158, 11, 0.1);
+  }
+}
+
+.favorite-star-btn:active {
+  transform: scale(0.92);
+}
+
+.favorite-star-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .favorite-star-btn.active {
   color: #F59E0B;
+  filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.45));
 }
 
 .favorite-star-btn.inactive {
   color: var(--text-dim);
 }
 
+/* Botón rápido de notas en examen/tutor */
+.quiz-notes-toggle-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-pure);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1), background 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .quiz-notes-toggle-btn:hover {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.08);
+  }
+}
+
+.quiz-notes-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.quiz-notes-toggle-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.quiz-notes-toggle-btn.has-notes {
+  border-color: #3B82F6;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent);
+}
+
+/* Cajón de notas en examen */
+.quiz-note-drawer {
+  margin-top: 14px;
+  margin-bottom: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.quiz-note-drawer.has-content {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
 .q-note-box {
-  margin-top: 10px;
+  margin-top: 12px;
   background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  padding: 10px 14px;
+  transition: border-color 0.15s ease;
 }
 
+/* modern-web-guidance: form-fields-automatically-fit-contents */
 .q-note-textarea {
+  field-sizing: content;
+  min-block-size: 3lh;
+  max-block-size: 14lh;
   width: 100%;
   box-sizing: border-box;
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-pure);
   font-family: inherit;
   font-size: 0.95rem;
-  line-height: 1.45;
-  padding: 8px 10px;
+  line-height: 1.55;
+  padding: 10px 12px;
   resize: vertical;
-  min-height: 54px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.q-note-textarea:focus {
+.q-note-textarea:focus-visible {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* modern-web-guidance: style-parent-with-has */
+.review-item-card:has(.favorite-star-btn.active) {
+  border-left: 3px solid #F59E0B !important;
+}
+
+.review-item-card:has(.q-note-textarea:not(:placeholder-shown)) {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-star-btn,
+  .quiz-notes-toggle-btn,
+  .quiz-note-drawer,
+  .q-note-textarea {
+    transition: none !important;
+    transform: none !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
